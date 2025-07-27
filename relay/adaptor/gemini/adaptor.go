@@ -17,6 +17,7 @@ import (
 	"github.com/songquanpeng/one-api/common/random"
 	channelhelper "github.com/songquanpeng/one-api/relay/adaptor"
 	"github.com/songquanpeng/one-api/relay/adaptor/openai"
+	"github.com/songquanpeng/one-api/relay/billing/ratio"
 	"github.com/songquanpeng/one-api/relay/meta"
 	"github.com/songquanpeng/one-api/relay/model"
 	"github.com/songquanpeng/one-api/relay/relaymode"
@@ -397,10 +398,7 @@ func (a *Adaptor) GetChannelName() string {
 
 // Pricing methods - Gemini adapter manages its own model pricing
 func (a *Adaptor) GetDefaultModelPricing() map[string]channelhelper.ModelConfig {
-	const MilliTokensUsd = 0.000001
-
-	// Direct map definition - much easier to maintain and edit
-	// Pricing from https://ai.google.dev/pricing
+	// Use the constants.go ModelRatios which already use ratio.MilliTokensUsd correctly
 	return ModelRatios
 }
 
@@ -409,8 +407,8 @@ func (a *Adaptor) GetModelRatio(modelName string) float64 {
 	if price, exists := pricing[modelName]; exists {
 		return price.Ratio
 	}
-	// Default Gemini pricing
-	return 0.5 * 0.000001 // Default USD pricing
+	// Default Gemini pricing - use global constant for consistency
+	return 5 * ratio.MilliTokensUsd // Default quota-based pricing
 }
 
 func (a *Adaptor) GetCompletionRatio(modelName string) float64 {

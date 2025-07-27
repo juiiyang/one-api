@@ -81,8 +81,7 @@ func (a *Adaptor) GetChannelName() string {
 // GetDefaultModelPricing returns the pricing information for SiliconFlow models
 // Based on SiliconFlow pricing: https://siliconflow.cn/pricing
 func (a *Adaptor) GetDefaultModelPricing() map[string]adaptor.ModelConfig {
-	const MilliTokensUsd = 0.5 // 0.000001 * 500000 = 0.5 quota per milli-token
-
+	// Use the constants.go ModelRatios which already use ratio.MilliTokensUsd correctly
 	return ModelRatios
 }
 

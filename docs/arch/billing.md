@@ -889,9 +889,9 @@ for model, price := range defaultPricing {
 
 **Ali (Alibaba Cloud)**: 89 models
 
-- Qwen models: ¥0.0003-¥0.0024 per 1K tokens
-- DeepSeek models: ¥0.0001-¥0.008 per 1K tokens
-- Embedding models: ¥0.00005 per 1K tokens
+- Qwen models: ¥0.3-¥2.4 per 1M tokens
+- DeepSeek models: ¥0.1-¥8 per 1M tokens
+- Embedding models: ¥0.05 per 1M tokens
 
 **AWS Bedrock**: 31 models
 

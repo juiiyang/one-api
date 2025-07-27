@@ -256,49 +256,49 @@ func (a *Adaptor) GetDefaultModelPricing() map[string]adaptor.ModelConfig {
 	// Pricing from https://aws.amazon.com/bedrock/pricing/
 	return map[string]adaptor.ModelConfig{
 		// Claude Models on AWS Bedrock
-		"claude-instant-1.2":         {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 3.125}, // $0.8/$2.5 per 1K tokens
-		"claude-2.0":                 {Ratio: 8 * MilliTokensUsd, CompletionRatio: 3.125},   // $8/$25 per 1K tokens
-		"claude-2.1":                 {Ratio: 8 * MilliTokensUsd, CompletionRatio: 3.125},   // $8/$25 per 1K tokens
-		"claude-3-haiku-20240307":    {Ratio: 0.25 * MilliTokensUsd, CompletionRatio: 5},    // $0.25/$1.25 per 1K tokens
-		"claude-3-sonnet-20240229":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-3-opus-20240229":     {Ratio: 15 * MilliTokensUsd, CompletionRatio: 5},      // $15/$75 per 1K tokens
-		"claude-opus-4-20250514":     {Ratio: 15 * MilliTokensUsd, CompletionRatio: 5},      // $15/$75 per 1K tokens
-		"claude-3-5-sonnet-20240620": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-3-5-sonnet-20241022": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-3-5-sonnet-latest":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-3-5-haiku-20241022":  {Ratio: 1 * MilliTokensUsd, CompletionRatio: 5},       // $1/$5 per 1K tokens
-		"claude-3-7-sonnet-latest":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-3-7-sonnet-20250219": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
-		"claude-sonnet-4-20250514":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1K tokens
+		"claude-instant-1.2":         {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 3.125}, // $0.8/$2.5 per 1M tokens
+		"claude-2.0":                 {Ratio: 8 * MilliTokensUsd, CompletionRatio: 3.125},   // $8/$25 per 1M tokens
+		"claude-2.1":                 {Ratio: 8 * MilliTokensUsd, CompletionRatio: 3.125},   // $8/$25 per 1M tokens
+		"claude-3-haiku-20240307":    {Ratio: 0.25 * MilliTokensUsd, CompletionRatio: 5},    // $0.25/$1.25 per 1M tokens
+		"claude-3-sonnet-20240229":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-3-opus-20240229":     {Ratio: 15 * MilliTokensUsd, CompletionRatio: 5},      // $15/$75 per 1M tokens
+		"claude-opus-4-20250514":     {Ratio: 15 * MilliTokensUsd, CompletionRatio: 5},      // $15/$75 per 1M tokens
+		"claude-3-5-sonnet-20240620": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-3-5-sonnet-20241022": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-3-5-sonnet-latest":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-3-5-haiku-20241022":  {Ratio: 1 * MilliTokensUsd, CompletionRatio: 5},       // $1/$5 per 1M tokens
+		"claude-3-7-sonnet-latest":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-3-7-sonnet-20250219": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
+		"claude-sonnet-4-20250514":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},       // $3/$15 per 1M tokens
 
 		// Llama Models on AWS Bedrock
-		"llama3-8b-8192":  {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 2},  // $0.3/$0.6 per 1K tokens
-		"llama3-70b-8192": {Ratio: 2.65 * MilliTokensUsd, CompletionRatio: 1}, // $2.65/$2.65 per 1K tokens
+		"llama3-8b-8192":  {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 2},  // $0.3/$0.6 per 1M tokens
+		"llama3-70b-8192": {Ratio: 2.65 * MilliTokensUsd, CompletionRatio: 1}, // $2.65/$2.65 per 1M tokens
 
 		// Amazon Nova Models (if supported)
-		"amazon-nova-micro":   {Ratio: 0.035 * MilliTokensUsd, CompletionRatio: 4.28}, // $0.035/$0.15 per 1K tokens
-		"amazon-nova-lite":    {Ratio: 0.06 * MilliTokensUsd, CompletionRatio: 4.17},  // $0.06/$0.25 per 1K tokens
-		"amazon-nova-pro":     {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 4},      // $0.8/$3.2 per 1K tokens
-		"amazon-nova-premier": {Ratio: 2.4 * MilliTokensUsd, CompletionRatio: 4.17},   // $2.4/$10 per 1K tokens
+		"amazon-nova-micro":   {Ratio: 0.035 * MilliTokensUsd, CompletionRatio: 4.28}, // $0.035/$0.15 per 1M tokens
+		"amazon-nova-lite":    {Ratio: 0.06 * MilliTokensUsd, CompletionRatio: 4.17},  // $0.06/$0.25 per 1M tokens
+		"amazon-nova-pro":     {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 4},      // $0.8/$3.2 per 1M tokens
+		"amazon-nova-premier": {Ratio: 2.4 * MilliTokensUsd, CompletionRatio: 4.17},   // $2.4/$10 per 1M tokens
 
 		// Titan Models (if supported)
-		"amazon-titan-text-lite":    {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 1.33}, // $0.3/$0.4 per 1K tokens
-		"amazon-titan-text-express": {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 2},    // $0.8/$1.6 per 1K tokens
-		"amazon-titan-embed-text":   {Ratio: 0.1 * MilliTokensUsd, CompletionRatio: 1},    // $0.1 per 1K tokens
+		"amazon-titan-text-lite":    {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 1.33}, // $0.3/$0.4 per 1M tokens
+		"amazon-titan-text-express": {Ratio: 0.8 * MilliTokensUsd, CompletionRatio: 2},    // $0.8/$1.6 per 1M tokens
+		"amazon-titan-embed-text":   {Ratio: 0.1 * MilliTokensUsd, CompletionRatio: 1},    // $0.1 per 1M tokens
 
 		// Cohere Models (if supported)
-		"cohere-command-text":       {Ratio: 1.5 * MilliTokensUsd, CompletionRatio: 1.33}, // $1.5/$2 per 1K tokens
-		"cohere-command-light-text": {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 2},    // $0.3/$0.6 per 1K tokens
+		"cohere-command-text":       {Ratio: 1.5 * MilliTokensUsd, CompletionRatio: 1.33}, // $1.5/$2 per 1M tokens
+		"cohere-command-light-text": {Ratio: 0.3 * MilliTokensUsd, CompletionRatio: 2},    // $0.3/$0.6 per 1M tokens
 
 		// AI21 Models (if supported)
-		"ai21-j2-mid":    {Ratio: 12.5 * MilliTokensUsd, CompletionRatio: 1}, // $12.5 per 1K tokens
-		"ai21-j2-ultra":  {Ratio: 18.8 * MilliTokensUsd, CompletionRatio: 1}, // $18.8 per 1K tokens
-		"ai21-jamba-1.5": {Ratio: 2 * MilliTokensUsd, CompletionRatio: 4},    // $2/$8 per 1K tokens
+		"ai21-j2-mid":    {Ratio: 12.5 * MilliTokensUsd, CompletionRatio: 1}, // $12.5 per 1M tokens
+		"ai21-j2-ultra":  {Ratio: 18.8 * MilliTokensUsd, CompletionRatio: 1}, // $18.8 per 1M tokens
+		"ai21-jamba-1.5": {Ratio: 2 * MilliTokensUsd, CompletionRatio: 4},    // $2/$8 per 1M tokens
 
 		// Mistral Models (if supported)
-		"mistral-7b-instruct":   {Ratio: 0.15 * MilliTokensUsd, CompletionRatio: 1.33}, // $0.15/$0.2 per 1K tokens
-		"mistral-8x7b-instruct": {Ratio: 0.45 * MilliTokensUsd, CompletionRatio: 1.56}, // $0.45/$0.7 per 1K tokens
-		"mistral-large":         {Ratio: 4 * MilliTokensUsd, CompletionRatio: 3},       // $4/$12 per 1K tokens
+		"mistral-7b-instruct":   {Ratio: 0.15 * MilliTokensUsd, CompletionRatio: 1.33}, // $0.15/$0.2 per 1M tokens
+		"mistral-8x7b-instruct": {Ratio: 0.45 * MilliTokensUsd, CompletionRatio: 1.56}, // $0.45/$0.7 per 1M tokens
+		"mistral-large":         {Ratio: 4 * MilliTokensUsd, CompletionRatio: 3},       // $4/$12 per 1M tokens
 	}
 }
 
