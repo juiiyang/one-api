@@ -142,9 +142,9 @@ var ModelRatios = map[string]adaptor.ModelConfig{
 	"gpt-4o-mini-tts":        {Ratio: 0.6 * ratio.MilliTokensUsd, CompletionRatio: 20.0}, // $0.60 input, $12.00 output per 1M tokens
 
 	// Image Generation Models
-	"dall-e-2":    {Ratio: 20.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.020 per image
-	"dall-e-3":    {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.040 per image
-	"gpt-image-1": {Ratio: 5.0 * ratio.MilliTokensUsd, CompletionRatio: 0.0},  // $5.00 per 1M input tokens, no output tokens
+	"dall-e-2":    {Ratio: (0.020 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.020 per image
+	"dall-e-3":    {Ratio: (0.040 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.040 per image
+	"gpt-image-1": {Ratio: 5.0 * ratio.MilliTokensUsd, CompletionRatio: 0.0},             // $5.00 per 1M input tokens, no output tokens
 }
 
 // ModelList derived from ModelRatios for backward compatibility

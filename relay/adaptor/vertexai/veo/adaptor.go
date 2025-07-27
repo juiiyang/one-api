@@ -26,8 +26,8 @@ import (
 // Based on VertexAI Veo pricing: https://cloud.google.com/vertex-ai/generative-ai/pricing
 var ModelRatios = map[string]adaptor.ModelConfig{
 	// Veo Video Generation Models
-	"veo-2.0-generate-001":     {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 1},  // Per video pricing
-	"veo-3.0-generate-preview": {Ratio: 0.15 * ratio.MilliTokensUsd, CompletionRatio: 1}, // Per video pricing
+	"veo-2.0-generate-001":     {Ratio: (0.1 / 0.1) * ratio.VideoUsdPerVideo, CompletionRatio: 1},  // $0.1 per video
+	"veo-3.0-generate-preview": {Ratio: (0.15 / 0.1) * ratio.VideoUsdPerVideo, CompletionRatio: 1}, // $0.15 per video
 }
 
 // ModelList derived from ModelRatios for backward compatibility

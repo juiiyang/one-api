@@ -12,30 +12,30 @@ var ModelRatios = map[string]adaptor.ModelConfig{
 	// -------------------------------------
 	// Image Generation Models
 	// -------------------------------------
-	"black-forest-labs/flux-kontext-pro":            {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.04 per image
-	"black-forest-labs/flux-1.1-pro":                {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.04 per image
-	"black-forest-labs/flux-1.1-pro-ultra":          {Ratio: 60.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.06 per image
-	"black-forest-labs/flux-canny-dev":              {Ratio: 25.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.025 per image
-	"black-forest-labs/flux-canny-pro":              {Ratio: 50.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.05 per image
-	"black-forest-labs/flux-depth-dev":              {Ratio: 25.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.025 per image
-	"black-forest-labs/flux-depth-pro":              {Ratio: 50.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.05 per image
-	"black-forest-labs/flux-dev":                    {Ratio: 25.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.025 per image
-	"black-forest-labs/flux-dev-lora":               {Ratio: 32.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.032 per image
-	"black-forest-labs/flux-fill-dev":               {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.04 per image
-	"black-forest-labs/flux-fill-pro":               {Ratio: 50.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.05 per image
-	"black-forest-labs/flux-pro":                    {Ratio: 55.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.055 per image
-	"black-forest-labs/flux-redux-dev":              {Ratio: 25.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.025 per image
-	"black-forest-labs/flux-redux-schnell":          {Ratio: 3.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0},  // $0.003 per image
-	"black-forest-labs/flux-schnell":                {Ratio: 3.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0},  // $0.003 per image
-	"black-forest-labs/flux-schnell-lora":           {Ratio: 20.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.02 per image
-	"ideogram-ai/ideogram-v2":                       {Ratio: 80.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.08 per image
-	"ideogram-ai/ideogram-v2-turbo":                 {Ratio: 50.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.05 per image
-	"recraft-ai/recraft-v3":                         {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.04 per image
-	"recraft-ai/recraft-v3-svg":                     {Ratio: 80.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.08 per image
-	"stability-ai/stable-diffusion-3":               {Ratio: 35.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.035 per image
-	"stability-ai/stable-diffusion-3.5-large":       {Ratio: 65.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.065 per image
-	"stability-ai/stable-diffusion-3.5-large-turbo": {Ratio: 40.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.04 per image
-	"stability-ai/stable-diffusion-3.5-medium":      {Ratio: 35.0 * ratio.MilliTokensUsd, CompletionRatio: 1.0}, // $0.035 per image
+	"black-forest-labs/flux-kontext-pro":            {Ratio: (0.04 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.04 per image
+	"black-forest-labs/flux-1.1-pro":                {Ratio: (0.04 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.04 per image
+	"black-forest-labs/flux-1.1-pro-ultra":          {Ratio: (0.06 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.06 per image
+	"black-forest-labs/flux-canny-dev":              {Ratio: (0.025 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.025 per image
+	"black-forest-labs/flux-canny-pro":              {Ratio: (0.05 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.05 per image
+	"black-forest-labs/flux-depth-dev":              {Ratio: (0.025 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.025 per image
+	"black-forest-labs/flux-depth-pro":              {Ratio: (0.05 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.05 per image
+	"black-forest-labs/flux-dev":                    {Ratio: (0.025 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.025 per image
+	"black-forest-labs/flux-dev-lora":               {Ratio: (0.032 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.032 per image
+	"black-forest-labs/flux-fill-dev":               {Ratio: (0.04 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.04 per image
+	"black-forest-labs/flux-fill-pro":               {Ratio: (0.05 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.05 per image
+	"black-forest-labs/flux-pro":                    {Ratio: (0.055 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.055 per image
+	"black-forest-labs/flux-redux-dev":              {Ratio: (0.025 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.025 per image
+	"black-forest-labs/flux-redux-schnell":          {Ratio: (0.003 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.003 per image
+	"black-forest-labs/flux-schnell":                {Ratio: (0.003 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.003 per image
+	"black-forest-labs/flux-schnell-lora":           {Ratio: (0.02 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.02 per image
+	"ideogram-ai/ideogram-v2":                       {Ratio: (0.08 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.08 per image
+	"ideogram-ai/ideogram-v2-turbo":                 {Ratio: (0.05 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.05 per image
+	"recraft-ai/recraft-v3":                         {Ratio: (0.04 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.04 per image
+	"recraft-ai/recraft-v3-svg":                     {Ratio: (0.08 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.08 per image
+	"stability-ai/stable-diffusion-3":               {Ratio: (0.035 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.035 per image
+	"stability-ai/stable-diffusion-3.5-large":       {Ratio: (0.065 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.065 per image
+	"stability-ai/stable-diffusion-3.5-large-turbo": {Ratio: (0.04 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0},  // $0.04 per image
+	"stability-ai/stable-diffusion-3.5-medium":      {Ratio: (0.035 / 0.002) * ratio.ImageUsdPerPic, CompletionRatio: 1.0}, // $0.035 per image
 
 	// -------------------------------------
 	// Language Models

@@ -345,8 +345,8 @@ func (a *Adaptor) GetModelRatio(modelName string) float64 {
 	if price, exists := pricing[modelName]; exists {
 		return price.Ratio
 	}
-	// Default Replicate pricing (image generation) - use global constant for consistency
-	return 5 * ratio.MilliTokensUsd // Default quota-based pricing
+	// Default Replicate pricing (image generation) - use proper image pricing unit
+	return (0.05 / 0.002) * ratio.ImageUsdPerPic // Default $0.05 per image
 }
 
 func (a *Adaptor) GetCompletionRatio(modelName string) float64 {

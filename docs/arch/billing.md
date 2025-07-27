@@ -76,6 +76,7 @@
       - [What Was Preserved](#what-was-preserved)
       - [Benefits Achieved](#benefits-achieved)
   - [Implementation Details](#implementation-details)
+    - [Current Implementation Status](#current-implementation-status)
     - [Four-Layer Pricing Resolution](#four-layer-pricing-resolution)
       - [Legacy Compatibility](#legacy-compatibility)
     - [Batch Processing](#batch-processing)
@@ -268,64 +269,38 @@ graph TD
 - `model/channel.go` - Channel-specific pricing storage
 - `controller/channel.go` - Channel pricing API endpoints
 
+
 ### 3. Adapter System
 
-Each channel adapter implements its own comprehensive pricing logic. As of the latest implementation, 25+ major adapters have native pricing support:
+All channel adapters now use a unified, centralized pricing logic. As of July 2025, 25+ major adapters import and use a shared `ModelRatios` constant from their respective `constants.go` or subadaptor, eliminating local, hardcoded pricing maps and ensuring consistency across the system.
 
-```mermaid
-classDiagram
-    class Adaptor {
-        <<interface>>
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
+**Key interface:**
 
-    class DefaultPricingMethods {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    class OpenAIAdaptor {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    class AnthropicAdaptor {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    class AliAdaptor {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    class GeminiAdaptor {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    class ReplicateAdaptor {
-        +GetDefaultModelPricing() map[string]ModelConfig
-        +GetModelRatio(modelName string) float64
-        +GetCompletionRatio(modelName string) float64
-    }
-
-    Adaptor <|-- DefaultPricingMethods
-    Adaptor <|-- OpenAIAdaptor
-    Adaptor <|-- AnthropicAdaptor
-    Adaptor <|-- AliAdaptor
-    Adaptor <|-- GeminiAdaptor
-    Adaptor <|-- ReplicateAdaptor
-
-    note for Adaptor "25+ adapters with native pricing:\n• OpenAI (84 models)\n• Anthropic (15 models)\n• Zhipu (23 models)\n• Ali (89 models)\n• Baidu (16 models)\n• Tencent (6 models)\n• Gemini (26 models)\n• Xunfei (6 models)\n• VertexAI (34 models)\n• DeepSeek (2 models)\n• Groq (20+ models)\n• Mistral (10+ models)\n• Moonshot (3 models)\n• Cohere (12 models)\n• AI360 (4 models)\n• Doubao (20+ models)\n• Novita (40+ models)\n• OpenRouter (100+ models)\n• Replicate (48 models)\n• AWS (31 models)\n• StepFun (3 models)\n• LingYi WanWu (3 models)\n• Minimax (3 models)\n• Baichuan (2 models)\n• TogetherAI (40+ models)\n• SiliconFlow (30+ models)"
+```go
+type Adaptor interface {
+    GetDefaultModelPricing() map[string]ModelConfig
+    GetModelRatio(modelName string) float64
+    GetCompletionRatio(modelName string) float64
+}
 ```
+
+**Implementation details:**
+
+- Each adapter's `GetDefaultModelPricing()` returns the shared `ModelRatios` map, which is the single source of truth for model pricing.
+- Model lists are always derived from the keys of the shared pricing maps, ensuring pricing and support are always in sync.
+- All adapters use a unified fallback (e.g., `5 * ratio.MilliTokensUsd`) for unknown models.
+- VertexAI pricing is aggregated from all subadaptors (Claude, Imagen, Gemini, Veo) and includes VertexAI-specific models. Any omission in a subadaptor will propagate to VertexAI.
+- All pricing, quota, and billing calculations are standardized to use "per 1M tokens" (1 million tokens) instead of "per 1K tokens". This is reflected in all code, comments, and documentation. Double-check all user-facing messages and documentation for consistency.
+
+**Adapters with Native Pricing (25+ total):**
+
+- OpenAI, Anthropic, Zhipu, Ali (Alibaba), Baidu, Tencent, Gemini, Xunfei, VertexAI, DeepSeek, Groq, Mistral, Moonshot, Cohere, AI360, Doubao, Novita, OpenRouter, Replicate, AWS, StepFun, LingYi WanWu, Minimax, Baichuan, TogetherAI, SiliconFlow, XAI
+
+**Adapters using DefaultPricingMethods (fallback only):**
+
+- Ollama, Coze, DeepL
+
+All adapters now follow the same four-layer pricing system and fallback logic, with no local pricing map drift.
 
 #### Adapter Pricing Implementation Status
 
