@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
+	"github.com/songquanpeng/one-api/common/config"
 	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/model"
@@ -181,20 +182,42 @@ func RelayClaudeMessagesHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	requestId := c.GetString(ctxkey.RequestId)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// Use configurable billing timeout with model-specific adjustments
+		baseBillingTimeout := time.Duration(config.BillingTimeout) * time.Second
+		billingTimeout := baseBillingTimeout
+
+		ctx, cancel := context.WithTimeout(context.Background(), billingTimeout)
 		defer cancel()
 
-		quota := postConsumeClaudeMessagesQuota(ctx, usage, meta, claudeRequest, ratio, preConsumedQuota, modelRatio, groupRatio, channelCompletionRatio)
+		// Monitor for timeout and log critical errors
+		done := make(chan bool, 1)
+		var quota int64
 
-		// also update user request cost
-		if quota != 0 {
-			docu := model.NewUserRequestCost(
-				quotaId,
-				requestId,
-				quota,
-			)
-			if err = docu.Insert(); err != nil {
-				logger.Errorf(ctx, "insert user request cost failed: %+v", err)
+		go func() {
+			quota = postConsumeClaudeMessagesQuota(ctx, usage, meta, claudeRequest, ratio, preConsumedQuota, modelRatio, groupRatio, channelCompletionRatio)
+
+			// also update user request cost
+			if quota != 0 {
+				docu := model.NewUserRequestCost(
+					quotaId,
+					requestId,
+					quota,
+				)
+				if err = docu.Insert(); err != nil {
+					logger.Errorf(ctx, "insert user request cost failed: %+v", err)
+				}
+			}
+			done <- true
+		}()
+
+		select {
+		case <-done:
+			// Billing completed successfully
+		case <-ctx.Done():
+			if ctx.Err() == context.DeadlineExceeded {
+				logger.Errorf(context.Background(), "CRITICAL BILLING TIMEOUT: model=%s, requestId=%s, userId=%d, estimatedQuota=%d, elapsedTime=%v",
+					claudeRequest.Model, requestId, meta.UserId, int64(float64(usage.PromptTokens+usage.CompletionTokens)*ratio), time.Since(meta.StartTime))
+				// TODO: Implement dead letter queue or retry mechanism for failed billing
 			}
 		}
 	}()

@@ -230,10 +230,47 @@ func setDBConns(db *gorm.DB) *sql.DB {
 		return nil
 	}
 
-	sqlDB.SetMaxIdleConns(env.Int("SQL_MAX_IDLE_CONNS", 100))
-	sqlDB.SetMaxOpenConns(env.Int("SQL_MAX_OPEN_CONNS", 1000))
-	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(env.Int("SQL_MAX_LIFETIME", 60)))
+	// Increase default connection pool sizes to handle billing load better
+	maxIdleConns := env.Int("SQL_MAX_IDLE_CONNS", 200)  // Increased from 100
+	maxOpenConns := env.Int("SQL_MAX_OPEN_CONNS", 2000) // Increased from 1000
+	maxLifetime := env.Int("SQL_MAX_LIFETIME", 300)     // Increased from 60 seconds
+
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(maxLifetime))
+
+	// Log connection pool settings for monitoring
+	logger.SysLog(fmt.Sprintf("Database connection pool configured: MaxIdle=%d, MaxOpen=%d, MaxLifetime=%ds",
+		maxIdleConns, maxOpenConns, maxLifetime))
+
+	// Start connection pool monitoring goroutine
+	go monitorDBConnections(sqlDB)
+
 	return sqlDB
+}
+
+// monitorDBConnections monitors database connection pool health
+func monitorDBConnections(sqlDB *sql.DB) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		stats := sqlDB.Stats()
+
+		// Log warning if connection pool is under stress
+		if stats.InUse > int(float64(stats.MaxOpenConnections)*0.8) {
+			logger.SysError(fmt.Sprintf("HIGH DB CONNECTION USAGE: InUse=%d/%d (%.1f%%), Idle=%d, WaitCount=%d, WaitDuration=%v",
+				stats.InUse, stats.MaxOpenConnections,
+				float64(stats.InUse)/float64(stats.MaxOpenConnections)*100,
+				stats.Idle, stats.WaitCount, stats.WaitDuration))
+		}
+
+		// Log critical error if we're hitting connection limits
+		if stats.WaitCount > 0 && stats.WaitDuration > time.Second {
+			logger.SysError(fmt.Sprintf("CRITICAL DB CONNECTION BOTTLENECK: WaitCount=%d, WaitDuration=%v - Consider increasing SQL_MAX_OPEN_CONNS",
+				stats.WaitCount, stats.WaitDuration))
+		}
+	}
 }
 
 func closeDB(db *gorm.DB) error {

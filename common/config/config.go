@@ -137,8 +137,9 @@ var ForceEmailTLSVerify = env.Bool("FORCE_EMAIL_TLS_VERIFY", false)
 var BatchUpdateEnabled = false
 var BatchUpdateInterval = env.Int("BATCH_UPDATE_INTERVAL", 5)
 
-var RelayTimeout = env.Int("RELAY_TIMEOUT", 0) // unit is second
-var IdleTimeout = env.Int("IDLE_TIMEOUT", 30)  // unit is second
+var RelayTimeout = env.Int("RELAY_TIMEOUT", 0)       // unit is second
+var IdleTimeout = env.Int("IDLE_TIMEOUT", 30)        // unit is second
+var BillingTimeout = env.Int("BILLING_TIMEOUT", 900) // unit is second, default 15 minutes
 
 var GeminiSafetySetting = env.String("GEMINI_SAFETY_SETTING", "BLOCK_NONE")
 
