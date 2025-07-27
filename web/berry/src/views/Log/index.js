@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { showError } from 'utils/common';
+import { showError, renderQuota } from 'utils/common';
 
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -10,7 +10,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Toolbar from '@mui/material/Toolbar';
 
-import { Button, Card, Stack, Container, Typography, Box } from '@mui/material';
+import { Button, Card, Stack, Container, Typography, Box, Alert, IconButton, Chip } from '@mui/material';
+import { IconRefresh } from '@tabler/icons-react';
 import LogTableRow from './component/TableRow';
 import LogTableHead from './component/TableHead';
 import TableToolBar from './component/TableToolBar';
@@ -35,6 +36,9 @@ export default function Log() {
   const [searching, setSearching] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState(originalKeyword);
   const [initPage, setInitPage] = useState(true);
+  const [stat, setStat] = useState({ quota: 0 });
+  const [showStat, setShowStat] = useState(false);
+  const [isStatRefreshing, setIsStatRefreshing] = useState(false);
   const userIsAdmin = isAdmin();
 
   const loadLogs = async (startIdx) => {
@@ -84,6 +88,39 @@ export default function Log() {
     setSearchKeyword({ ...searchKeyword, [event.target.name]: event.target.value });
   };
 
+  const getLogStat = async () => {
+    const query = { ...searchKeyword };
+    delete query.p;
+    if (!userIsAdmin) {
+      delete query.username;
+      delete query.channel;
+    }
+    const url = userIsAdmin ? '/api/log/stat' : '/api/log/self/stat';
+    const res = await API.get(url, { params: query });
+    const { success, message, data } = res.data;
+    if (success) {
+      setStat(data);
+    } else {
+      showError(message);
+    }
+  };
+
+  const handleStatRefresh = async () => {
+    setIsStatRefreshing(true);
+    try {
+      await getLogStat();
+    } finally {
+      setIsStatRefreshing(false);
+    }
+  };
+
+  const handleShowStat = async () => {
+    if (!showStat) {
+      await getLogStat();
+    }
+    setShowStat(!showStat);
+  };
+
   // 处理刷新
   const handleRefresh = () => {
     setInitPage(true);
@@ -105,6 +142,51 @@ export default function Log() {
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2.5}>
         <Typography variant="h4">日志</Typography>
       </Stack>
+
+      {/* Quota Statistics Section */}
+      <Card sx={{ mb: 2 }}>
+        <Box sx={{ p: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Typography variant="h6">
+              使用详情（总配额：
+              {showStat ? (
+                <>
+                  <Chip
+                    label={renderQuota(stat.quota)}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={handleStatRefresh}
+                    disabled={isStatRefreshing}
+                    sx={{ ml: 1 }}
+                    title="刷新配额数据"
+                  >
+                    <IconRefresh
+                      width="16px"
+                      style={{
+                        animation: isStatRefreshing ? 'spin 1s linear infinite' : 'none'
+                      }}
+                    />
+                  </IconButton>
+                </>
+              ) : (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={handleShowStat}
+                  sx={{ textTransform: 'none', color: 'text.secondary' }}
+                >
+                  点击查看
+                </Button>
+              )}
+              ）
+            </Typography>
+          </Stack>
+        </Box>
+      </Card>
       <Card>
         <Box component="form" onSubmit={searchLogs} noValidate sx={{marginTop: 2}}>
           <TableToolBar filterName={searchKeyword} handleFilterName={handleSearchKeyword} userIsAdmin={userIsAdmin} />

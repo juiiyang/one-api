@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { API, copy, isAdmin, showError, showSuccess, timestamp2string } from '../helpers';
 
-import { Avatar, Button, Form, Layout, Modal, Select, Space, Spin, Table, Tag } from '@douyinfe/semi-ui';
+import { Avatar, Button, Form, Layout, Modal, Select, Space, Spin, Table, Tag, AutoComplete, IconButton } from '@douyinfe/semi-ui';
+import { IconRefresh } from '@douyinfe/semi-icons';
 import { ITEMS_PER_PAGE } from '../constants';
 import { renderNumber, renderQuota, stringToColor } from '../helpers/render';
 import Paragraph from '@douyinfe/semi-ui/lib/es/typography/paragraph';
@@ -165,9 +166,48 @@ const LogsTable = () => {
   const [stat, setStat] = useState({
     quota: 0, token: 0
   });
+  const [isStatRefreshing, setIsStatRefreshing] = useState(false);
+  const [userOptions, setUserOptions] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
 
   const handleInputChange = (value, name) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
+  };
+
+  const searchUsers = async (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setUserOptions([]);
+      return;
+    }
+
+    setUserSearchLoading(true);
+    try {
+      const res = await API.get(`/api/user/search?keyword=${searchQuery}`);
+      const { success, data } = res.data;
+      if (success) {
+        const options = data.map(user => ({
+          value: user.username,
+          label: `${user.display_name || user.username} (@${user.username})`,
+          username: user.username,
+          display_name: user.display_name,
+          id: user.id
+        }));
+        setUserOptions(options);
+      }
+    } catch (error) {
+      console.error('Failed to search users:', error);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  const handleStatRefresh = async () => {
+    setIsStatRefreshing(true);
+    try {
+      await getLogStat();
+    } finally {
+      setIsStatRefreshing(false);
+    }
   };
 
   const getLogSelfStat = async () => {
@@ -338,6 +378,18 @@ const LogsTable = () => {
             <span onClick={handleEyeClick} style={{
               cursor: 'pointer', color: 'gray'
             }}>{showStat ? renderQuota(stat.quota) : '点击查看'}</span>
+            {showStat && (
+              <IconButton
+                icon={<IconRefresh />}
+                size="small"
+                onClick={handleStatRefresh}
+                loading={isStatRefreshing}
+                disabled={isStatRefreshing}
+                style={{ marginLeft: '8px' }}
+                theme="borderless"
+                title="刷新配额数据"
+              />
+            )}
             ）
           </h3>
         </Spin>
@@ -365,9 +417,28 @@ const LogsTable = () => {
             <Form.Input field="channel" label="渠道 ID" style={{ width: 176 }} value={channel}
               placeholder="可选值" name="channel"
               onChange={value => handleInputChange(value, 'channel')} />
-            <Form.Input field="username" label="用户名称" style={{ width: 176 }} value={username}
-              placeholder={'可选值'} name="username"
-              onChange={value => handleInputChange(value, 'username')} />
+            <Form.Field field="username" label="用户名称" style={{ width: 176 }}>
+              <AutoComplete
+                data={userOptions}
+                value={username}
+                placeholder="搜索用户名称"
+                onSearch={searchUsers}
+                onChange={value => handleInputChange(value, 'username')}
+                loading={userSearchLoading}
+                emptyContent="未找到用户"
+                renderSelectedItem={(option) => option.username || option.value}
+                renderItem={(option) => (
+                  <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 0' }}>
+                    <div style={{ fontWeight: 'bold' }}>
+                      {option.display_name || option.username}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      @{option.username} • ID: {option.id}
+                    </div>
+                  </div>
+                )}
+              />
+            </Form.Field>
           </>}
           <Form.Section>
             <Button label="查询" type="primary" htmlType="submit" className="btn-margin-right"

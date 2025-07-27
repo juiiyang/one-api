@@ -9,6 +9,8 @@ import {
   Select,
   Table,
   Popup,
+  Icon,
+  Dropdown,
 } from 'semantic-ui-react';
 import {
   API,
@@ -161,6 +163,9 @@ const LogsTable = () => {
     quota: 0,
     token: 0,
   });
+  const [isStatRefreshing, setIsStatRefreshing] = useState(false);
+  const [userOptions, setUserOptions] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
 
   const LOG_OPTIONS = [
     { key: '0', text: t('log.type.all'), value: 0 },
@@ -173,6 +178,54 @@ const LogsTable = () => {
 
   const handleInputChange = (e, { name, value }) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
+  };
+
+  const searchUsers = async (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setUserOptions([]);
+      return;
+    }
+
+    setUserSearchLoading(true);
+    try {
+      const res = await API.get(`/api/user/search?keyword=${searchQuery}`);
+      const { success, data } = res.data;
+      if (success) {
+        const options = data.map(user => ({
+          key: user.id,
+          value: user.username,
+          text: `${user.display_name || user.username} (@${user.username})`,
+          content: (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontWeight: 'bold' }}>
+                {user.display_name || user.username}
+              </div>
+              <div style={{ fontSize: '0.9em', color: '#666' }}>
+                @{user.username} • ID: {user.id}
+              </div>
+            </div>
+          )
+        }));
+        setUserOptions(options);
+      }
+    } catch (error) {
+      console.error('Failed to search users:', error);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  const handleStatRefresh = async () => {
+    setIsStatRefreshing(true);
+    try {
+      if (isAdminUser) {
+        await getLogStat();
+      } else {
+        await getLogSelfStat();
+      }
+    } finally {
+      setIsStatRefreshing(false);
+    }
   };
 
   const getLogSelfStat = async () => {
@@ -312,7 +365,27 @@ const LogsTable = () => {
     <>
       <Header as='h3'>
         {t('log.usage_details')}（{t('log.total_quota')}：
-        {showStat && renderQuota(stat.quota, t)}
+        {showStat && (
+          <>
+            {renderQuota(stat.quota, t)}
+            <Button
+              size='mini'
+              circular
+              icon='refresh'
+              onClick={handleStatRefresh}
+              loading={isStatRefreshing}
+              disabled={isStatRefreshing}
+              style={{
+                marginLeft: '8px',
+                padding: '4px',
+                minHeight: '20px',
+                minWidth: '20px',
+                fontSize: '10px'
+              }}
+              title={t('log.refresh_quota', 'Refresh quota data')}
+            />
+          </>
+        )}
         {!showStat && (
           <span
             onClick={handleEyeClick}
@@ -388,16 +461,32 @@ const LogsTable = () => {
                 name='channel'
                 onChange={handleInputChange}
               />
-              <Form.Input
-                fluid
-                label={t('log.table.username')}
-                size={'small'}
-                width={3}
-                value={username}
-                placeholder={t('log.table.username_placeholder')}
-                name='username'
-                onChange={handleInputChange}
-              />
+              <Form.Field width={3}>
+                <label>{t('log.table.username')}</label>
+                <Dropdown
+                  fluid
+                  selection
+                  search
+                  clearable
+                  allowAdditions
+                  value={username}
+                  placeholder={t('log.table.username_placeholder')}
+                  options={userOptions}
+                  onSearchChange={(_, { searchQuery }) => searchUsers(searchQuery)}
+                  onChange={(_, { value }) => handleInputChange(_, { name: 'username', value })}
+                  loading={userSearchLoading}
+                  noResultsMessage={t('log.no_users_found', 'No users found')}
+                  additionLabel={t('log.use_username', 'Use username: ')}
+                  onAddItem={(_, { value }) => {
+                    const newOption = {
+                      key: value,
+                      value: value,
+                      text: value
+                    };
+                    setUserOptions([...userOptions, newOption]);
+                  }}
+                />
+              </Form.Field>
             </Form.Group>
           </>
         )}
