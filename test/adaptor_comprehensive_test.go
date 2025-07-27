@@ -310,12 +310,12 @@ func getAllAdapterTestCases() []AdapterTestCase {
 
 		// Additional Adapters with Claude Messages Support
 		{
-			Name:                   "VertexAI",
+			Name:                   "VertexAI_Claude",
 			Adapter:                &vertexai.Adaptor{},
 			ChannelType:            channeltype.VertextAI,
 			SupportsChatCompletion: true,
 			SupportsClaudeMessages: true,
-			TestModel:              "gemini-pro",
+			TestModel:              "claude-3-sonnet@20240229", // Use a Claude model for Claude Messages API testing
 		},
 		{
 			Name:                   "AWS",
@@ -436,6 +436,7 @@ func TestAdapterChatCompletionSupport(t *testing.T) {
 				configErrors := []string{
 					"invalid tencent config",
 					"cannot found vertex chat adaptor",
+					"cannot found vertex adaptor",
 					"adaptor not found",
 					"stream=true",
 					"invalid baidu apikey",
@@ -540,6 +541,7 @@ func TestAdapterClaudeMessagesSupport(t *testing.T) {
 				configErrors := []string{
 					"invalid tencent config",
 					"cannot found vertex chat adaptor",
+					"cannot found vertex adaptor",
 					"adaptor not found",
 					"stream=true",
 					"invalid baidu apikey",

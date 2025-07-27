@@ -77,7 +77,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 
 	adaptor := GetAdaptor(meta.ActualModelName)
 	if adaptor == nil {
-		return nil, errors.Errorf("cannot found vertex claude adaptor for model %s", meta.ActualModelName)
+		return nil, errors.Errorf("cannot found vertex adaptor for model %s", meta.ActualModelName)
 	}
 
 	// Convert Claude Messages API request to OpenAI format first
