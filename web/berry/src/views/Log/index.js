@@ -11,14 +11,13 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import Toolbar from '@mui/material/Toolbar';
 
 import { Button, Card, Stack, Container, Typography, Box, Alert, IconButton, Chip } from '@mui/material';
-import { IconRefresh } from '@tabler/icons-react';
+import { IconRefresh, IconSearch } from '@tabler/icons-react';
 import LogTableRow from './component/TableRow';
 import LogTableHead from './component/TableHead';
 import TableToolBar from './component/TableToolBar';
 import { API } from 'utils/api';
 import { isAdmin } from 'utils/common';
 import { ITEMS_PER_PAGE } from 'constants';
-import { IconRefresh, IconSearch } from '@tabler/icons-react';
 
 export default function Log() {
   const originalKeyword = {
