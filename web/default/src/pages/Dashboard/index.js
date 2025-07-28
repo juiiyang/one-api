@@ -636,7 +636,9 @@ const Dashboard = () => {
 
     // Budget projection
     const totalQuotaToday = summaryData.todayQuota;
-    const monthlyProjection = totalQuotaToday * 30;
+    const quotaPerUnit = parseFloat(localStorage.getItem('quota_per_unit') || '500000');
+    const dailySpendingInCurrency = totalQuotaToday / quotaPerUnit;
+    const monthlyProjection = dailySpendingInCurrency * 30;
 
     if (monthlyProjection > 100) {
       insights.push({
@@ -1155,7 +1157,7 @@ const Dashboard = () => {
                       }}
                       formatter={(value) => [
                         <span style={{ color: chartConfig.colors.quota, fontWeight: '600' }}>
-                          ${value.toFixed(6)}
+                          {renderQuota(value, t, 6)}
                         </span>,
                         t('dashboard.charts.quota.tooltip'),
                       ]}
