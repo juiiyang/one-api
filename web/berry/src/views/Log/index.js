@@ -20,12 +20,15 @@ import { isAdmin } from 'utils/common';
 import { ITEMS_PER_PAGE } from 'constants';
 
 export default function Log() {
+  let now = new Date();
+  let sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
   const originalKeyword = {
     p: 0,
     username: '',
     token_name: '',
     model_name: '',
-    start_timestamp: 0,
+    start_timestamp: Math.floor(sevenDaysAgo.getTime() / 1000),
     end_timestamp: new Date().getTime() / 1000 + 3600,
     type: 0,
     channel: ''
@@ -38,14 +41,21 @@ export default function Log() {
   const [stat, setStat] = useState({ quota: 0 });
   const [showStat, setShowStat] = useState(false);
   const [isStatRefreshing, setIsStatRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortLoading, setSortLoading] = useState(false);
   const userIsAdmin = isAdmin();
 
   const loadLogs = async (startIdx) => {
     setSearching(true);
     const url = userIsAdmin ? '/api/log/' : '/api/log/self';
-    const query = searchKeyword;
+    const query = { ...searchKeyword };
 
     query.p = startIdx;
+    if (sortBy) {
+      query.sort_by = sortBy;
+      query.sort_order = sortOrder;
+    }
     if (!userIsAdmin) {
       delete query.username;
       delete query.channel;
@@ -74,6 +84,26 @@ export default function Log() {
       }
       setActivePage(activePage);
     })();
+  };
+
+  const handleSort = async (columnKey) => {
+    // Prevent multiple sort requests
+    if (sortLoading) return;
+
+    if (sortBy === columnKey) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(columnKey);
+      setSortOrder('desc');
+    }
+    setActivePage(0);
+    setSortLoading(true);
+
+    try {
+      await loadLogs(0);
+    } finally {
+      setSortLoading(false);
+    }
   };
 
   const searchLogs = async (event) => {
@@ -215,7 +245,13 @@ export default function Log() {
         <PerfectScrollbar component="div">
           <TableContainer sx={{ overflow: 'unset' }}>
             <Table sx={{ minWidth: 800 }}>
-              <LogTableHead userIsAdmin={userIsAdmin} />
+              <LogTableHead
+                userIsAdmin={userIsAdmin}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                sortLoading={sortLoading}
+                onSort={handleSort}
+              />
               <TableBody>
                 {logs.slice(activePage * ITEMS_PER_PAGE, (activePage + 1) * ITEMS_PER_PAGE).map((row, index) => (
                   <LogTableRow item={row} key={`${row.id}_${index}`} userIsAdmin={userIsAdmin} />

@@ -366,6 +366,7 @@
       "prompt_tokens": "Prompt Tokens",
       "completion_tokens": "Completion Tokens",
       "quota": "Quota",
+      "latency": "Latency",
       "detail": "Detail"
     },
     "buttons": {

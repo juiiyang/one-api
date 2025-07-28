@@ -114,21 +114,47 @@ const LogsTable = () => {
   //   }
   // },
   {
-    title: '提示', dataIndex: 'prompt_tokens', render: (text, record, index) => {
+    title: <span style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }} onClick={() => handleSort('prompt_tokens')}>
+      提示{getSortIcon('prompt_tokens')}
+      {sortLoading && sortBy === 'prompt_tokens' && <span> ⏳</span>}
+    </span>,
+    dataIndex: 'prompt_tokens',
+    render: (text, record, index) => {
       return (record.type === 0 || record.type === 2 ? <div>
         {<span> {text} </span>}
       </div> : <></>);
     }
   }, {
-    title: '补全', dataIndex: 'completion_tokens', render: (text, record, index) => {
+    title: <span style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }} onClick={() => handleSort('completion_tokens')}>
+      补全{getSortIcon('completion_tokens')}
+      {sortLoading && sortBy === 'completion_tokens' && <span> ⏳</span>}
+    </span>,
+    dataIndex: 'completion_tokens',
+    render: (text, record, index) => {
       return (parseInt(text) > 0 && (record.type === 0 || record.type === 2) ? <div>
         {<span> {text} </span>}
       </div> : <></>);
     }
   }, {
-    title: '花费', dataIndex: 'quota', render: (text, record, index) => {
+    title: <span style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }} onClick={() => handleSort('quota')}>
+      花费{getSortIcon('quota')}
+      {sortLoading && sortBy === 'quota' && <span> ⏳</span>}
+    </span>,
+    dataIndex: 'quota',
+    render: (text, record, index) => {
       return (record.type === 0 || record.type === 2 ? <div>
         {renderQuota(text, 6)}
+      </div> : <></>);
+    }
+  }, {
+    title: <span style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }} onClick={() => handleSort('elapsed_time')}>
+      Latency{getSortIcon('elapsed_time')}
+      {sortLoading && sortBy === 'elapsed_time' && <span> ⏳</span>}
+    </span>,
+    dataIndex: 'elapsed_time',
+    render: (text, record, index) => {
+      return (record.type === 0 || record.type === 2 ? <div>
+        {text ? `${text} ms` : ''}
       </div> : <></>);
     }
   }, {
@@ -152,15 +178,19 @@ const LogsTable = () => {
   const [logType, setLogType] = useState(0);
   const isAdminUser = isAdmin();
   let now = new Date();
-  // 初始化start_timestamp为前一天
+  // 初始化start_timestamp为7天前
+  let sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const [inputs, setInputs] = useState({
     username: '',
     token_name: '',
     model_name: '',
-    start_timestamp: timestamp2string(now.getTime() / 1000 - 86400),
+    start_timestamp: timestamp2string(sevenDaysAgo.getTime() / 1000),
     end_timestamp: timestamp2string(now.getTime() / 1000 + 3600),
     channel: ''
   });
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortLoading, setSortLoading] = useState(false);
   const { username, token_name, model_name, start_timestamp, end_timestamp, channel } = inputs;
 
   const [stat, setStat] = useState({
@@ -282,10 +312,14 @@ const LogsTable = () => {
     let url = '';
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
+    let sortParams = '';
+    if (sortBy) {
+      sortParams = `&sort_by=${sortBy}&sort_order=${sortOrder}`;
+    }
     if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${logType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}`;
+      url = `/api/log/?p=${startIdx}&page_size=${pageSize}&type=${logType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}${sortParams}`;
     } else {
-      url = `/api/log/self?p=${startIdx}&page_size=${pageSize}&type=${logType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
+      url = `/api/log/self?p=${startIdx}&page_size=${pageSize}&type=${logType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}${sortParams}`;
     }
     const res = await API.get(url);
     const { success, message, data } = res.data;
@@ -323,6 +357,33 @@ const LogsTable = () => {
       .catch((reason) => {
         showError(reason);
       });
+  };
+
+  const handleSort = async (columnKey) => {
+    // Prevent multiple sort requests
+    if (sortLoading) return;
+
+    if (sortBy === columnKey) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(columnKey);
+      setSortOrder('desc');
+    }
+    setActivePage(1);
+    setSortLoading(true);
+
+    try {
+      await loadLogs(0, pageSize, logType);
+    } finally {
+      setSortLoading(false);
+    }
+  };
+
+  const getSortIcon = (columnKey) => {
+    if (columnKey !== sortBy) {
+      return null;
+    }
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
 
   const refresh = async (localLogType) => {

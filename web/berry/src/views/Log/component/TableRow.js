@@ -57,6 +57,7 @@ export default function LogTableRow({ item, userIsAdmin }) {
         <TableCell>{item.prompt_tokens || ''}</TableCell>
         <TableCell>{item.completion_tokens || ''}</TableCell>
         <TableCell>{item.quota ? renderQuota(item.quota, 6) : ''}</TableCell>
+        <TableCell>{item.elapsed_time ? `${item.elapsed_time} ms` : ''}</TableCell>
         <TableCell>{item.content}</TableCell>
       </TableRow>
     </>
