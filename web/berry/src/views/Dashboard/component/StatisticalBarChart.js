@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 
 // material-ui
-import { Grid, Typography } from '@mui/material';
+import { Grid, Typography, FormControl, Select, MenuItem } from '@mui/material';
 
 // third-party
 import Chart from 'react-apexcharts';
@@ -14,9 +14,35 @@ import { Box } from '@mui/material';
 
 // ==============================|| DASHBOARD DEFAULT - TOTAL GROWTH BAR CHART ||============================== //
 
-const StatisticalBarChart = ({ isLoading, chartDatas }) => {
-  chartData.options.xaxis.categories = chartDatas.xaxis;
-  chartData.series = chartDatas.data;
+const StatisticalBarChart = ({ isLoading, chartDatas, statisticsMetric, onMetricChange }) => {
+  // Update chart data with current metric-specific formatting
+  const updatedChartData = {
+    ...chartData,
+    options: {
+      ...chartData.options,
+      xaxis: {
+        ...chartData.options.xaxis,
+        categories: chartDatas.xaxis
+      },
+      tooltip: {
+        ...chartData.options.tooltip,
+        y: {
+          formatter: function (val) {
+            switch (statisticsMetric) {
+              case 'requests':
+                return val.toLocaleString();
+              case 'tokens':
+                return val.toLocaleString();
+              case 'expenses':
+              default:
+                return '$' + val;
+            }
+          }
+        }
+      }
+    },
+    series: chartDatas.data
+  };
 
   return (
     <>
@@ -28,13 +54,32 @@ const StatisticalBarChart = ({ isLoading, chartDatas }) => {
             <Grid item xs={12}>
               <Grid container alignItems="center" justifyContent="space-between">
                 <Grid item>
-                  <Typography variant="h3">统计</Typography>
+                  <Typography variant="h3">
+                    统计 - {
+                      statisticsMetric === 'tokens' ? '令牌' :
+                      statisticsMetric === 'requests' ? '请求' :
+                      '费用'
+                    }
+                  </Typography>
+                </Grid>
+                <Grid item>
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <Select
+                      value={statisticsMetric}
+                      onChange={(e) => onMetricChange(e, e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="expenses">费用</MenuItem>
+                      <MenuItem value="requests">请求</MenuItem>
+                      <MenuItem value="tokens">令牌</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Grid>
               </Grid>
             </Grid>
             <Grid item xs={12}>
-              {chartData.series ? (
-                <Chart {...chartData} />
+              {updatedChartData.series ? (
+                <Chart {...updatedChartData} />
               ) : (
                 <Box
                   sx={{
@@ -58,7 +103,10 @@ const StatisticalBarChart = ({ isLoading, chartDatas }) => {
 };
 
 StatisticalBarChart.propTypes = {
-  isLoading: PropTypes.bool
+  isLoading: PropTypes.bool,
+  chartDatas: PropTypes.object,
+  statisticsMetric: PropTypes.string,
+  onMetricChange: PropTypes.func
 };
 
 export default StatisticalBarChart;
