@@ -118,20 +118,20 @@ export function renderNumberWithPoint(num) {
 
 export function getQuotaPerUnit() {
     let quotaPerUnit = localStorage.getItem('quota_per_unit');
-    quotaPerUnit = parseFloat(quotaPerUnit);
+    quotaPerUnit = parseFloat(quotaPerUnit || '500000');
     return quotaPerUnit;
 }
 
 export function getQuotaWithUnit(quota, digits = 6) {
     let quotaPerUnit = localStorage.getItem('quota_per_unit');
-    quotaPerUnit = parseFloat(quotaPerUnit);
+    quotaPerUnit = parseFloat(quotaPerUnit || '500000');
     return (quota / quotaPerUnit).toFixed(digits);
 }
 
 export function renderQuota(quota, digits = 2) {
     let quotaPerUnit = localStorage.getItem('quota_per_unit');
     let displayInCurrency = localStorage.getItem('display_in_currency');
-    quotaPerUnit = parseFloat(quotaPerUnit);
+    quotaPerUnit = parseFloat(quotaPerUnit || '500000');
     displayInCurrency = displayInCurrency === 'true';
     if (displayInCurrency) {
         return '$' + (quota / quotaPerUnit).toFixed(digits);
