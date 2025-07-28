@@ -50,7 +50,7 @@ func authHelper(c *gin.Context, minRole int) {
 
 	// First, try to authenticate using session data (cookies)
 	if username == nil {
-		logger.SysLog("no user session found, try to use access token")
+		logger.Logger.Info("no user session found, try to use access token")
 		// If no session exists, try to authenticate using the Authorization header
 		accessToken := c.Request.Header.Get("Authorization")
 		if accessToken == "" {

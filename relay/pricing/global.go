@@ -56,13 +56,13 @@ func InitializeGlobalPricingManager(getAdaptor func(apiType int) adaptor.Adaptor
 	if globalPricingManager.contributingAdapters == nil {
 		globalPricingManager.contributingAdapters = make([]int, len(DefaultGlobalPricingAdapters))
 		copy(globalPricingManager.contributingAdapters, DefaultGlobalPricingAdapters)
-		logger.SysLog(fmt.Sprintf("Loaded %d adapters for global pricing",
+		logger.Logger.Info(fmt.Sprintf("Loaded %d adapters for global pricing",
 			len(globalPricingManager.contributingAdapters)))
 	}
 
 	globalPricingManager.initialized = false // Force re-initialization with new function
 
-	logger.SysLog("Global pricing manager initialized")
+	logger.Logger.Info("Global pricing manager initialized")
 }
 
 // SetContributingAdapters allows configuration of which adapters contribute to global pricing
@@ -74,7 +74,7 @@ func SetContributingAdapters(apiTypes []int) {
 	copy(globalPricingManager.contributingAdapters, apiTypes)
 	globalPricingManager.initialized = false // Force re-initialization
 
-	logger.SysLog("Global pricing adapters updated, will reload on next access")
+	logger.Logger.Info("Global pricing adapters updated, will reload on next access")
 }
 
 // ReloadDefaultConfiguration reloads the adapter configuration from the default slice
@@ -86,7 +86,7 @@ func ReloadDefaultConfiguration() {
 	copy(globalPricingManager.contributingAdapters, DefaultGlobalPricingAdapters)
 	globalPricingManager.initialized = false // Force re-initialization
 
-	logger.SysLog(fmt.Sprintf("Reloaded global pricing configuration: %d adapters", len(globalPricingManager.contributingAdapters)))
+	logger.Logger.Info(fmt.Sprintf("Reloaded global pricing configuration: %d adapters", len(globalPricingManager.contributingAdapters)))
 }
 
 // GetContributingAdapters returns the current list of contributing adapters
@@ -126,11 +126,11 @@ func (gpm *GlobalPricingManager) ensureInitialized() {
 // Must be called with write lock held
 func (gpm *GlobalPricingManager) initializeUnsafe() {
 	if gpm.getAdaptorFunc == nil {
-		logger.SysWarn("Global pricing manager not properly initialized - missing adaptor getter function")
+		logger.Logger.Warn("Global pricing manager not properly initialized - missing adaptor getter function")
 		return
 	}
 
-	logger.SysLog("Initializing global model pricing from contributing adapters...")
+	logger.Logger.Info("Initializing global model pricing from contributing adapters...")
 
 	gpm.globalModelPricing = make(map[string]adaptor.ModelConfig)
 	successCount := 0
@@ -142,7 +142,7 @@ func (gpm *GlobalPricingManager) initializeUnsafe() {
 	}
 
 	gpm.initialized = true
-	logger.SysLog(fmt.Sprintf("Global model pricing initialized with %d models from %d/%d adapters",
+	logger.Logger.Info(fmt.Sprintf("Global model pricing initialized with %d models from %d/%d adapters",
 		len(gpm.globalModelPricing), successCount, len(gpm.contributingAdapters)))
 }
 
@@ -152,13 +152,13 @@ func (gpm *GlobalPricingManager) initializeUnsafe() {
 func (gpm *GlobalPricingManager) mergeAdapterPricing(apiType int) bool {
 	adaptor := gpm.getAdaptorFunc(apiType)
 	if adaptor == nil {
-		logger.SysWarn(fmt.Sprintf("No adaptor found for API type %d", apiType))
+		logger.Logger.Warn(fmt.Sprintf("No adaptor found for API type %d", apiType))
 		return false
 	}
 
 	pricing := adaptor.GetDefaultModelPricing()
 	if len(pricing) == 0 {
-		logger.SysWarn(fmt.Sprintf("Adaptor %d returned empty pricing", apiType))
+		logger.Logger.Warn(fmt.Sprintf("Adaptor %d returned empty pricing", apiType))
 		return false
 	}
 
@@ -168,7 +168,7 @@ func (gpm *GlobalPricingManager) mergeAdapterPricing(apiType int) bool {
 	for modelName, modelPrice := range pricing {
 		if existingPrice, exists := gpm.globalModelPricing[modelName]; exists {
 			// Handle conflict: prefer the first adapter's pricing (could be configurable)
-			logger.SysWarn(fmt.Sprintf("Model %s pricing conflict: existing=%.9f, new=%.9f (keeping existing)",
+			logger.Logger.Warn(fmt.Sprintf("Model %s pricing conflict: existing=%.9f, new=%.9f (keeping existing)",
 				modelName, existingPrice.Ratio, modelPrice.Ratio))
 			conflictCount++
 		} else {
@@ -177,7 +177,7 @@ func (gpm *GlobalPricingManager) mergeAdapterPricing(apiType int) bool {
 		}
 	}
 
-	logger.SysLog(fmt.Sprintf("Merged %d models from adapter %d (%d conflicts)", mergedCount, apiType, conflictCount))
+	logger.Logger.Info(fmt.Sprintf("Merged %d models from adapter %d (%d conflicts)", mergedCount, apiType, conflictCount))
 	return true
 }
 

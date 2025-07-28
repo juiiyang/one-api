@@ -16,72 +16,72 @@ func DebugChannelModelConfigs(channelId int) error {
 		return fmt.Errorf("failed to find channel %d: %w", channelId, err)
 	}
 
-	logger.SysLog(fmt.Sprintf("=== DEBUG CHANNEL %d ===", channelId))
-	logger.SysLog(fmt.Sprintf("Name: %s", channel.Name))
-	logger.SysLog(fmt.Sprintf("Type: %d", channel.Type))
-	logger.SysLog(fmt.Sprintf("Status: %d", channel.Status))
+	logger.Logger.Info(fmt.Sprintf("=== DEBUG CHANNEL %d ===", channelId))
+	logger.Logger.Info(fmt.Sprintf("Name: %s", channel.Name))
+	logger.Logger.Info(fmt.Sprintf("Type: %d", channel.Type))
+	logger.Logger.Info(fmt.Sprintf("Status: %d", channel.Status))
 
 	// Check ModelConfigs
 	if channel.ModelConfigs != nil && *channel.ModelConfigs != "" && *channel.ModelConfigs != "{}" {
-		logger.SysLog(fmt.Sprintf("ModelConfigs (raw): %s", *channel.ModelConfigs))
+		logger.Logger.Info(fmt.Sprintf("ModelConfigs (raw): %s", *channel.ModelConfigs))
 
 		// Try to parse as new format
 		var newFormatConfigs map[string]ModelConfigLocal
 		if err := json.Unmarshal([]byte(*channel.ModelConfigs), &newFormatConfigs); err == nil {
-			logger.SysLog(fmt.Sprintf("ModelConfigs (new format) - %d models:", len(newFormatConfigs)))
+			logger.Logger.Info(fmt.Sprintf("ModelConfigs (new format) - %d models:", len(newFormatConfigs)))
 			for modelName, config := range newFormatConfigs {
-				logger.SysLog(fmt.Sprintf("  %s: ratio=%.6f, completion_ratio=%.2f, max_tokens=%d",
+				logger.Logger.Info(fmt.Sprintf("  %s: ratio=%.6f, completion_ratio=%.2f, max_tokens=%d",
 					modelName, config.Ratio, config.CompletionRatio, config.MaxTokens))
 			}
 		} else {
 			// Try to parse as old format
 			var oldFormatConfigs map[string]ModelConfig
 			if err := json.Unmarshal([]byte(*channel.ModelConfigs), &oldFormatConfigs); err == nil {
-				logger.SysLog(fmt.Sprintf("ModelConfigs (old format) - %d models:", len(oldFormatConfigs)))
+				logger.Logger.Info(fmt.Sprintf("ModelConfigs (old format) - %d models:", len(oldFormatConfigs)))
 				for modelName, config := range oldFormatConfigs {
-					logger.SysLog(fmt.Sprintf("  %s: max_tokens=%d", modelName, config.MaxTokens))
+					logger.Logger.Info(fmt.Sprintf("  %s: max_tokens=%d", modelName, config.MaxTokens))
 				}
 			} else {
-				logger.SysError(fmt.Sprintf("ModelConfigs parsing failed: %s", err.Error()))
+				logger.Logger.Error(fmt.Sprintf("ModelConfigs parsing failed: %s", err.Error()))
 			}
 		}
 	} else {
-		logger.SysLog("ModelConfigs: empty or null")
+		logger.Logger.Info("ModelConfigs: empty or null")
 	}
 
 	// Check ModelRatio
 	if channel.ModelRatio != nil && *channel.ModelRatio != "" && *channel.ModelRatio != "{}" {
-		logger.SysLog(fmt.Sprintf("ModelRatio (raw): %s", *channel.ModelRatio))
+		logger.Logger.Info(fmt.Sprintf("ModelRatio (raw): %s", *channel.ModelRatio))
 		var modelRatios map[string]float64
 		if err := json.Unmarshal([]byte(*channel.ModelRatio), &modelRatios); err == nil {
-			logger.SysLog(fmt.Sprintf("ModelRatio (parsed) - %d models:", len(modelRatios)))
+			logger.Logger.Info(fmt.Sprintf("ModelRatio (parsed) - %d models:", len(modelRatios)))
 			for modelName, ratio := range modelRatios {
-				logger.SysLog(fmt.Sprintf("  %s: %.6f", modelName, ratio))
+				logger.Logger.Info(fmt.Sprintf("  %s: %.6f", modelName, ratio))
 			}
 		} else {
-			logger.SysError(fmt.Sprintf("ModelRatio parsing failed: %s", err.Error()))
+			logger.Logger.Error(fmt.Sprintf("ModelRatio parsing failed: %s", err.Error()))
 		}
 	} else {
-		logger.SysLog("ModelRatio: empty or null")
+		logger.Logger.Info("ModelRatio: empty or null")
 	}
 
 	// Check CompletionRatio
 	if channel.CompletionRatio != nil && *channel.CompletionRatio != "" && *channel.CompletionRatio != "{}" {
-		logger.SysLog(fmt.Sprintf("CompletionRatio (raw): %s", *channel.CompletionRatio))
+		logger.Logger.Info(fmt.Sprintf("CompletionRatio (raw): %s", *channel.CompletionRatio))
 		var completionRatios map[string]float64
 		if err := json.Unmarshal([]byte(*channel.CompletionRatio), &completionRatios); err == nil {
-			logger.SysLog(fmt.Sprintf("CompletionRatio (parsed) - %d models:", len(completionRatios)))
+			logger.Logger.Info(fmt.Sprintf("CompletionRatio (parsed) - %d models:", len(completionRatios)))
 			for modelName, ratio := range completionRatios {
-				logger.SysLog(fmt.Sprintf("  %s: %.2f", modelName, ratio))
+				logger.Logger.Info(fmt.Sprintf("  %s: %.2f", modelName, ratio))
 			}
 		} else {
-			logger.SysError(fmt.Sprintf("CompletionRatio parsing failed: %s", err.Error()))
+			logger.Logger.Error(fmt.Sprintf("CompletionRatio parsing failed: %s", err.Error()))
 		}
 	} else {
-		logger.SysLog("CompletionRatio: empty or null")
+		logger.Logger.Info("CompletionRatio: empty or null")
 	}
 
-	logger.SysLog("=== END DEBUG ===")
+	logger.Logger.Info("=== END DEBUG ===")
 	return nil
 }
 
@@ -93,13 +93,13 @@ func DebugAllChannelModelConfigs() error {
 		return fmt.Errorf("failed to fetch channels: %w", err)
 	}
 
-	logger.SysLog("=== ALL CHANNELS SUMMARY ===")
+	logger.Logger.Info("=== ALL CHANNELS SUMMARY ===")
 	for _, channel := range channels {
 		// Get full channel data
 		var fullChannel Channel
 		err := DB.Where("id = ?", channel.Id).First(&fullChannel).Error
 		if err != nil {
-			logger.SysError(fmt.Sprintf("Failed to load channel %d: %s", channel.Id, err.Error()))
+			logger.Logger.Error(fmt.Sprintf("Failed to load channel %d: %s", channel.Id, err.Error()))
 			continue
 		}
 
@@ -114,7 +114,7 @@ func DebugAllChannelModelConfigs() error {
 			status = "LEGACY"
 		}
 
-		logger.SysLog(fmt.Sprintf("Channel %d (%s) Type=%d Status=%s",
+		logger.Logger.Info(fmt.Sprintf("Channel %d (%s) Type=%d Status=%s",
 			channel.Id, channel.Name, channel.Type, status))
 
 		if hasModelConfigs {
@@ -125,7 +125,7 @@ func DebugAllChannelModelConfigs() error {
 				for modelName := range configs {
 					modelNames = append(modelNames, modelName)
 				}
-				logger.SysLog(fmt.Sprintf("  Unified models (%d): %s", len(configs), strings.Join(modelNames, ", ")))
+				logger.Logger.Info(fmt.Sprintf("  Unified models (%d): %s", len(configs), strings.Join(modelNames, ", ")))
 			}
 		}
 
@@ -137,11 +137,11 @@ func DebugAllChannelModelConfigs() error {
 				for modelName := range ratios {
 					modelNames = append(modelNames, modelName)
 				}
-				logger.SysLog(fmt.Sprintf("  Legacy models (%d): %s", len(ratios), strings.Join(modelNames, ", ")))
+				logger.Logger.Info(fmt.Sprintf("  Legacy models (%d): %s", len(ratios), strings.Join(modelNames, ", ")))
 			}
 		}
 	}
-	logger.SysLog("=== END SUMMARY ===")
+	logger.Logger.Info("=== END SUMMARY ===")
 	return nil
 }
 
@@ -153,13 +153,13 @@ func FixChannelModelConfigs(channelId int) error {
 		return fmt.Errorf("failed to find channel %d: %w", channelId, err)
 	}
 
-	logger.SysLog(fmt.Sprintf("=== FIXING CHANNEL %d ===", channelId))
+	logger.Logger.Info(fmt.Sprintf("=== FIXING CHANNEL %d ===", channelId))
 
 	// First, debug current state
 	DebugChannelModelConfigs(channelId)
 
 	// Clear any mixed model data and regenerate from adapter defaults
-	logger.SysLog("Clearing mixed model data and regenerating from adapter defaults...")
+	logger.Logger.Info("Clearing mixed model data and regenerating from adapter defaults...")
 
 	// Clear existing model configs
 	emptyConfigs := "{}"
@@ -170,14 +170,14 @@ func FixChannelModelConfigs(channelId int) error {
 	channel.CompletionRatio = &emptyConfigs
 
 	// Get default pricing for this channel type from adapter
-	logger.SysLog(fmt.Sprintf("Loading default pricing for channel type %d", channel.Type))
+	logger.Logger.Info(fmt.Sprintf("Loading default pricing for channel type %d", channel.Type))
 	defaultPricing := getChannelDefaultPricing(channel.Type)
 
 	if defaultPricing != "" {
-		logger.SysLog(fmt.Sprintf("Setting default model configs: %s", defaultPricing))
+		logger.Logger.Info(fmt.Sprintf("Setting default model configs: %s", defaultPricing))
 		channel.ModelConfigs = &defaultPricing
 	} else {
-		logger.SysLog("No default pricing available for this channel type")
+		logger.Logger.Info("No default pricing available for this channel type")
 	}
 
 	// Save changes
@@ -187,22 +187,22 @@ func FixChannelModelConfigs(channelId int) error {
 		"completion_ratio": channel.CompletionRatio,
 	}).Error
 	if err != nil {
-		logger.SysError(fmt.Sprintf("Failed to save fixed data: %s", err.Error()))
+		logger.Logger.Error(fmt.Sprintf("Failed to save fixed data: %s", err.Error()))
 		return err
 	}
-	logger.SysLog("Fixed data saved to database")
+	logger.Logger.Info("Fixed data saved to database")
 
 	// Debug final state
-	logger.SysLog("Final state after fix:")
+	logger.Logger.Info("Final state after fix:")
 	DebugChannelModelConfigs(channelId)
 
-	logger.SysLog("=== FIX COMPLETED ===")
+	logger.Logger.Info("=== FIX COMPLETED ===")
 	return nil
 }
 
 // CleanAllMixedModelData cleans all channels that have mixed model data
 func CleanAllMixedModelData() error {
-	logger.SysLog("=== CLEANING ALL MIXED MODEL DATA ===")
+	logger.Logger.Info("=== CLEANING ALL MIXED MODEL DATA ===")
 
 	var channels []Channel
 	err := DB.Find(&channels).Error
@@ -221,17 +221,17 @@ func CleanAllMixedModelData() error {
 
 				for modelName := range configs {
 					if !contains(channelTypeModels, modelName) {
-						logger.SysLog(fmt.Sprintf("Channel %d (type %d) has unexpected model: %s", channel.Id, channel.Type, modelName))
+						logger.Logger.Info(fmt.Sprintf("Channel %d (type %d) has unexpected model: %s", channel.Id, channel.Type, modelName))
 						hasMixedData = true
 						break
 					}
 				}
 
 				if hasMixedData {
-					logger.SysLog(fmt.Sprintf("Cleaning mixed data for channel %d", channel.Id))
+					logger.Logger.Info(fmt.Sprintf("Cleaning mixed data for channel %d", channel.Id))
 					err := FixChannelModelConfigs(channel.Id)
 					if err != nil {
-						logger.SysError(fmt.Sprintf("Failed to clean channel %d: %s", channel.Id, err.Error()))
+						logger.Logger.Error(fmt.Sprintf("Failed to clean channel %d: %s", channel.Id, err.Error()))
 					} else {
 						cleanedCount++
 					}
@@ -240,8 +240,8 @@ func CleanAllMixedModelData() error {
 		}
 	}
 
-	logger.SysLog(fmt.Sprintf("Cleaned %d channels with mixed model data", cleanedCount))
-	logger.SysLog("=== CLEANING COMPLETED ===")
+	logger.Logger.Info(fmt.Sprintf("Cleaned %d channels with mixed model data", cleanedCount))
+	logger.Logger.Info("=== CLEANING COMPLETED ===")
 	return nil
 }
 
@@ -341,7 +341,7 @@ func ValidateAllChannelModelConfigs() error {
 		return fmt.Errorf("failed to fetch channels: %w", err)
 	}
 
-	logger.SysLog("=== VALIDATION REPORT ===")
+	logger.Logger.Info("=== VALIDATION REPORT ===")
 
 	validCount := 0
 	issueCount := 0
@@ -361,28 +361,28 @@ func ValidateAllChannelModelConfigs() error {
 			// Validate unified format
 			var configs map[string]ModelConfigLocal
 			if err := json.Unmarshal([]byte(*channel.ModelConfigs), &configs); err != nil {
-				logger.SysError(fmt.Sprintf("Channel %d: Invalid ModelConfigs JSON: %s", channel.Id, err.Error()))
+				logger.Logger.Error(fmt.Sprintf("Channel %d: Invalid ModelConfigs JSON: %s", channel.Id, err.Error()))
 				issueCount++
 				continue
 			}
 
 			// Validate each model config
 			if err := channel.validateModelPriceConfigs(configs); err != nil {
-				logger.SysError(fmt.Sprintf("Channel %d: Invalid ModelConfigs data: %s", channel.Id, err.Error()))
+				logger.Logger.Error(fmt.Sprintf("Channel %d: Invalid ModelConfigs data: %s", channel.Id, err.Error()))
 				issueCount++
 				continue
 			}
 
 			validCount++
 		} else if hasLegacyData {
-			logger.SysLog(fmt.Sprintf("Channel %d: Has legacy data, needs migration", channel.Id))
+			logger.Logger.Info(fmt.Sprintf("Channel %d: Has legacy data, needs migration", channel.Id))
 			issueCount++
 		}
 	}
 
-	logger.SysLog(fmt.Sprintf("Validation Summary: %d valid, %d issues, %d empty, %d total",
+	logger.Logger.Info(fmt.Sprintf("Validation Summary: %d valid, %d issues, %d empty, %d total",
 		validCount, issueCount, emptyCount, len(channels)))
-	logger.SysLog("=== END VALIDATION ===")
+	logger.Logger.Info("=== END VALIDATION ===")
 
 	return nil
 }

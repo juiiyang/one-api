@@ -22,7 +22,6 @@ type ModelRequest struct {
 
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		ctx := c.Request.Context()
 		userId := c.GetInt(ctxkey.Id)
 		userGroup, _ := model.CacheGetUserGroup(userId)
 		c.Set(ctxkey.Group, userGroup)
@@ -47,12 +46,12 @@ func Distribute() func(c *gin.Context) {
 			channel, err = model.CacheGetRandomSatisfiedChannel(userGroup, requestModel, false)
 			if err != nil {
 				// If no highest priority channels available, try lower priority channels as fallback
-				logger.Infof(ctx, "No highest priority channels available for model %s in group %s, trying lower priority channels", requestModel, userGroup)
+				logger.Logger.Info(fmt.Sprintf("No highest priority channels available for model %s in group %s, trying lower priority channels", requestModel, userGroup))
 				channel, err = model.CacheGetRandomSatisfiedChannel(userGroup, requestModel, true)
 				if err != nil {
 					message := fmt.Sprintf("No available channels for Model %s under Group %s", requestModel, userGroup)
 					if channel != nil {
-						logger.SysError(fmt.Sprintf("Channel does not exist: %d", channel.Id))
+						logger.Logger.Error(fmt.Sprintf("Channel does not exist: %d", channel.Id))
 						message = "Database consistency has been broken, please contact the administrator"
 					}
 					AbortWithError(c, http.StatusServiceUnavailable, errors.New(message))
@@ -60,7 +59,7 @@ func Distribute() func(c *gin.Context) {
 				}
 			}
 		}
-		logger.Debugf(ctx, "user id %d, user group: %s, request model: %s, using channel #%d", userId, userGroup, requestModel, channel.Id)
+		logger.Logger.Debug(fmt.Sprintf("user id %d, user group: %s, request model: %s, using channel #%d", userId, userGroup, requestModel, channel.Id))
 		SetupContextForSelectedChannel(c, channel, requestModel)
 		c.Next()
 	}
@@ -77,7 +76,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 			minimalRatio = v
 		}
 	}
-	logger.Info(c.Request.Context(), fmt.Sprintf("set channel %s ratio to %f", channel.Name, minimalRatio))
+	logger.Logger.Info(fmt.Sprintf("set channel %s ratio to %f", channel.Name, minimalRatio))
 	c.Set(ctxkey.ChannelRatio, minimalRatio)
 	c.Set(ctxkey.ChannelModel, channel)
 

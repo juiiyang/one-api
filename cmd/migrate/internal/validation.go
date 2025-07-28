@@ -78,7 +78,7 @@ func (v *PreMigrationValidator) ValidateAll() (*ValidationResult, error) {
 
 // validateConnections validates database connections
 func (v *PreMigrationValidator) validateConnections(result *ValidationResult) error {
-	logger.SysLog("Validating database connections...")
+	logger.Logger.Info("Validating database connections...")
 
 	// Validate source connection
 	if err := v.migrator.sourceConn.ValidateConnection(); err != nil {
@@ -95,7 +95,7 @@ func (v *PreMigrationValidator) validateConnections(result *ValidationResult) er
 
 // validateSourceDatabase validates the source database
 func (v *PreMigrationValidator) validateSourceDatabase(result *ValidationResult) error {
-	logger.SysLog("Validating source database...")
+	logger.Logger.Info("Validating source database...")
 
 	// Check if source database has expected tables
 	expectedTables := []string{"users", "tokens", "channels", "options", "redemptions", "abilities", "logs", "user_request_costs"}
@@ -125,7 +125,7 @@ func (v *PreMigrationValidator) validateSourceDatabase(result *ValidationResult)
 
 // validateTargetDatabase validates the target database
 func (v *PreMigrationValidator) validateTargetDatabase(result *ValidationResult) error {
-	logger.SysLog("Validating target database...")
+	logger.Logger.Info("Validating target database...")
 
 	// Check if target database is empty or has conflicting data
 	tables, err := v.migrator.targetConn.GetTableNames()
@@ -157,7 +157,7 @@ func (v *PreMigrationValidator) validateTargetDatabase(result *ValidationResult)
 
 // validateMigrationCompatibility validates migration compatibility
 func (v *PreMigrationValidator) validateMigrationCompatibility(result *ValidationResult) error {
-	logger.SysLog("Validating migration compatibility...")
+	logger.Logger.Info("Validating migration compatibility...")
 
 	// Check for known compatibility issues
 	sourceType := v.migrator.sourceConn.Type
@@ -183,7 +183,7 @@ func (v *PreMigrationValidator) validateMigrationCompatibility(result *Validatio
 
 // checkPotentialIssues checks for potential migration issues
 func (v *PreMigrationValidator) checkPotentialIssues(result *ValidationResult) {
-	logger.SysLog("Checking for potential issues...")
+	logger.Logger.Info("Checking for potential issues...")
 
 	// Check for large datasets
 	for _, tableInfo := range TableMigrationOrder {
@@ -221,7 +221,7 @@ func (v *PreMigrationValidator) checkPotentialIssues(result *ValidationResult) {
 
 // generateBackupRecommendations generates backup recommendations
 func (v *PreMigrationValidator) generateBackupRecommendations(result *ValidationResult) {
-	logger.SysLog("Generating backup recommendations...")
+	logger.Logger.Info("Generating backup recommendations...")
 
 	recommendations := []string{
 		"IMPORTANT: Always backup your databases before migration",

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
@@ -190,7 +191,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 	meta := metalib.GetByContext(c)
 	imageRequest, err := getImageRequest(c, meta.Mode)
 	if err != nil {
-		logger.Errorf(ctx, "getImageRequest failed: %s", err.Error())
+		logger.Logger.Error("getImageRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "invalid_image_request", http.StatusBadRequest)
 	}
 
@@ -232,7 +233,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 
 	adaptor := relay.GetAdaptor(meta.APIType)
 	if adaptor == nil {
-		return openai.ErrorWrapper(fmt.Errorf("invalid api type: %d", meta.APIType), "invalid_api_type", http.StatusBadRequest)
+		return openai.ErrorWrapper(errors.Errorf("invalid api type: %d", meta.APIType), "invalid_api_type", http.StatusBadRequest)
 	}
 	adaptor.Init(meta)
 
@@ -304,7 +305,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 	// do request
 	resp, err := adaptor.DoRequest(c, meta, requestBody)
 	if err != nil {
-		logger.Errorf(ctx, "DoRequest failed: %s", err.Error())
+		logger.Logger.Error("DoRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 
@@ -318,11 +319,11 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 
 		err := model.PostConsumeTokenQuota(meta.TokenId, usedQuota)
 		if err != nil {
-			logger.SysError("error consuming token remain quota: " + err.Error())
+			logger.Logger.Error("error consuming token remain quota", zap.Error(err))
 		}
 		err = model.CacheUpdateUserQuota(ctx, meta.UserId)
 		if err != nil {
-			logger.SysError("error update user quota cache: " + err.Error())
+			logger.Logger.Error("error update user quota cache", zap.Error(err))
 		}
 		if usedQuota >= 0 {
 			tokenName := c.GetString(ctxkey.TokenName)
@@ -350,7 +351,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 				usedQuota,
 			)
 			if err = docu.Insert(); err != nil {
-				logger.Errorf(c, "insert user request cost failed: %+v", err)
+				logger.Logger.Error("insert user request cost failed", zap.Error(err))
 			}
 		}
 	}(c.Request.Context())
@@ -358,7 +359,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 	// do response
 	usage, respErr := adaptor.DoResponse(c, resp, meta)
 	if respErr != nil {
-		logger.Errorf(ctx, "respErr is not nil: %+v", respErr)
+		logger.Logger.Error("respErr is not nil", zap.Any("error", respErr))
 		return respErr
 	}
 

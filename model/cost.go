@@ -71,6 +71,6 @@ func removeOldRequestCost() {
 		Where("created_time < ?", helper.GetTimestamp()-3600*24*7).
 		Delete(&UserRequestCost{}).Error
 	if err != nil {
-		logger.SysError(fmt.Sprintf("failed to remove old request cost: %s", err.Error()))
+		logger.Logger.Error(fmt.Sprintf("failed to remove old request cost: %s", err.Error()))
 	}
 }

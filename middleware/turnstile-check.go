@@ -40,7 +40,7 @@ func TurnstileCheck() gin.HandlerFunc {
 				"remoteip": {c.ClientIP()},
 			})
 			if err != nil {
-				logger.SysError(err.Error())
+				logger.Logger.Error(err.Error())
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),
@@ -52,7 +52,7 @@ func TurnstileCheck() gin.HandlerFunc {
 			var res turnstileCheckResponse
 			err = json.NewDecoder(rawRes.Body).Decode(&res)
 			if err != nil {
-				logger.SysError(err.Error())
+				logger.Logger.Error(err.Error())
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),

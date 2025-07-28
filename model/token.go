@@ -40,7 +40,7 @@ func clearTokenCache(key string) {
 	if common.RedisEnabled {
 		err := common.RedisDel(fmt.Sprintf("token:%s", key))
 		if err != nil {
-			logger.SysError("failed to clear token cache: " + err.Error())
+			logger.Logger.Error("failed to clear token cache: " + err.Error())
 		}
 	}
 }
@@ -74,7 +74,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	}
 	token, err = CacheGetTokenByKey(key)
 	if err != nil {
-		logger.SysError("CacheGetTokenByKey failed: " + err.Error())
+		logger.Logger.Error("CacheGetTokenByKey failed: " + err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.Wrap(err, "token not found")
 		}
@@ -94,7 +94,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			token.Status = TokenStatusExpired
 			err := token.SelectUpdate()
 			if err != nil {
-				logger.SysError("failed to update token status" + err.Error())
+				logger.Logger.Error("failed to update token status" + err.Error())
 			}
 		} else {
 			// If Redis is enabled, the cache will be updated by the next fetch
@@ -112,7 +112,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			token.Status = TokenStatusExhausted
 			err := token.SelectUpdate()
 			if err != nil {
-				logger.SysError("failed to update token status" + err.Error())
+				logger.Logger.Error("failed to update token status" + err.Error())
 			}
 		} else {
 			// If Redis IS enabled, and token is exhausted, we should clear it.
@@ -234,7 +234,7 @@ func increaseTokenQuota(id int, quota int64) (err error) {
 		if fetchErr == nil && token != nil {
 			clearTokenCache(token.Key)
 		} else if fetchErr != nil {
-			logger.SysError(fmt.Sprintf("failed to fetch token %d for cache clearing after quota increase: %s", id, fetchErr.Error()))
+			logger.Logger.Error(fmt.Sprintf("failed to fetch token %d for cache clearing after quota increase: %s", id, fetchErr.Error()))
 		}
 	}
 	return err
@@ -265,7 +265,7 @@ func decreaseTokenQuota(id int, quota int64) (err error) {
 		if fetchErr == nil && token != nil {
 			clearTokenCache(token.Key)
 		} else if fetchErr != nil {
-			logger.SysError(fmt.Sprintf("failed to fetch token %d for cache clearing after quota decrease: %s", id, fetchErr.Error()))
+			logger.Logger.Error(fmt.Sprintf("failed to fetch token %d for cache clearing after quota decrease: %s", id, fetchErr.Error()))
 		}
 	}
 	return err
@@ -295,7 +295,7 @@ func PreConsumeTokenQuota(tokenId int, quota int64) (err error) {
 		go func() {
 			email, err := GetUserEmail(token.UserId)
 			if err != nil {
-				logger.SysError("failed to fetch user email: " + err.Error())
+				logger.Logger.Error("failed to fetch user email: " + err.Error())
 			}
 			prompt := "Quota Reminder"
 			var contentText string
@@ -321,7 +321,7 @@ func PreConsumeTokenQuota(tokenId int, quota int64) (err error) {
 				)
 				err = message.SendEmail(prompt, email, content)
 				if err != nil {
-					logger.SysError("failed to send email: " + err.Error())
+					logger.Logger.Error("failed to send email: " + err.Error())
 				}
 			}
 		}()

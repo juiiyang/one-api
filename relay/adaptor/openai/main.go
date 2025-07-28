@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -53,7 +54,7 @@ func StreamHandler(c *gin.Context, resp *http.Response, relayMode int) (*model.E
 	for scanner.Scan() {
 		data := openai_compatible.NormalizeDataLine(scanner.Text())
 
-		// logger.Debugf(c.Request.Context(), "stream response: %s", data)
+		// logger.Logger.Debug(fmt.Sprintf("stream response: %s", data))
 
 		// Skip lines that don't match expected format
 		if len(data) < dataPrefixLength {
@@ -80,7 +81,7 @@ func StreamHandler(c *gin.Context, resp *http.Response, relayMode int) (*model.E
 			// Parse the JSON response
 			err := json.Unmarshal([]byte(data[dataPrefixLength:]), &streamResponse)
 			if err != nil {
-				logger.Errorf(c.Request.Context(), "unmarshalling stream data %q got %+v", data, err)
+				logger.Logger.Error(fmt.Sprintf("unmarshalling stream data %q got %+v", data, err))
 				render.StringData(c, data) // Pass raw data to client if parsing fails
 				continue
 			}
@@ -122,7 +123,7 @@ func StreamHandler(c *gin.Context, resp *http.Response, relayMode int) (*model.E
 			var streamResponse CompletionsStreamResponse
 			err := json.Unmarshal([]byte(data[dataPrefixLength:]), &streamResponse)
 			if err != nil {
-				logger.SysError("error unmarshalling stream response: " + err.Error())
+				logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 				continue
 			}
 
@@ -135,7 +136,7 @@ func StreamHandler(c *gin.Context, resp *http.Response, relayMode int) (*model.E
 
 	// Check for scanner errors
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 	}
 
 	// Ensure stream termination is sent to client
@@ -210,7 +211,7 @@ func Handler(c *gin.Context, resp *http.Response, promptTokens int, modelName st
 
 	// Reset response body for forwarding to client
 	resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	logger.Debugf(c.Request.Context(), "handler response: %s", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("handler response: %s", string(responseBody)))
 
 	// Check if this is a Claude Messages conversion - if so, don't write response here
 	// The DoResponse method will handle the conversion and response writing
@@ -347,8 +348,7 @@ func ResponseAPIHandler(c *gin.Context, resp *http.Response, promptTokens int, m
 	}
 
 	// Log the response body for debugging
-	logger.Debugf(c.Request.Context(),
-		"got response from upstream: %s", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("got response from upstream: %s", string(responseBody)))
 
 	// Close the original response body
 	if err = resp.Body.Close(); err != nil {
@@ -412,7 +412,7 @@ func ResponseAPIHandler(c *gin.Context, resp *http.Response, promptTokens int, m
 		return ErrorWrapper(err, "marshal_response_body_failed", http.StatusInternalServerError), nil
 	}
 
-	logger.Debugf(c.Request.Context(), "generate response to user: %s", string(jsonResponse))
+	logger.Logger.Debug(fmt.Sprintf("generate response to user: %s", string(jsonResponse)))
 
 	// Forward all response headers
 	for k, values := range resp.Header {
@@ -455,7 +455,7 @@ func ResponseAPIStreamHandler(c *gin.Context, resp *http.Response, relayMode int
 	for scanner.Scan() {
 		data := openai_compatible.NormalizeDataLine(scanner.Text())
 
-		logger.Debugf(c.Request.Context(), "receive stream event: %s", data)
+		logger.Logger.Debug(fmt.Sprintf("receive stream event: %s", data))
 
 		if !strings.HasPrefix(data, dataPrefix) {
 			continue
@@ -474,7 +474,7 @@ func ResponseAPIStreamHandler(c *gin.Context, resp *http.Response, relayMode int
 		fullResponse, streamEvent, err := ParseResponseAPIStreamEvent([]byte(data))
 		if err != nil {
 			// Log the error with more context but continue processing
-			logger.Debugf(c.Request.Context(), "skipping unparseable stream chunk: %s, error: %s", data, err.Error())
+			logger.Logger.Debug(fmt.Sprintf("skipping unparseable stream chunk: %s, error: %s", data, err.Error()))
 			continue
 		}
 
@@ -534,7 +534,7 @@ func ResponseAPIStreamHandler(c *gin.Context, resp *http.Response, relayMode int
 				// Send the converted chunk to the client
 				jsonStr, err := json.Marshal(chatCompletionChunk)
 				if err != nil {
-					logger.SysError("error marshalling stream chunk: " + err.Error())
+					logger.Logger.Error("error marshalling stream chunk: " + err.Error())
 					continue
 				}
 
@@ -565,12 +565,12 @@ func ResponseAPIStreamHandler(c *gin.Context, resp *http.Response, relayMode int
 
 					jsonStr, err := json.Marshal(usageChunk)
 					if err != nil {
-						logger.SysError("error marshalling usage chunk: " + err.Error())
+						logger.Logger.Error("error marshalling usage chunk: " + err.Error())
 						continue
 					}
 
 					c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonStr)})
-					logger.Debugf(c.Request.Context(), "sent usage chunk from response.completed: %s", string(jsonStr))
+					logger.Logger.Debug(fmt.Sprintf("sent usage chunk from response.completed: %s", string(jsonStr)))
 				}
 			}
 			// ALL other events (done events, in_progress events, etc.) are completely discarded
@@ -579,7 +579,7 @@ func ResponseAPIStreamHandler(c *gin.Context, resp *http.Response, relayMode int
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 		return ErrorWrapper(err, "read_stream_failed", http.StatusInternalServerError), responseText, usage
 	}
 
@@ -605,8 +605,7 @@ func ResponseAPIDirectHandler(c *gin.Context, resp *http.Response, promptTokens 
 	}
 
 	// Log the response body for debugging
-	logger.Debugf(c.Request.Context(),
-		"got response from upstream: %s", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("got response from upstream: %s", string(responseBody)))
 
 	// Close the original response body
 	if err = resp.Body.Close(); err != nil {
@@ -693,7 +692,7 @@ func ResponseAPIDirectStreamHandler(c *gin.Context, resp *http.Response, relayMo
 	for scanner.Scan() {
 		data := openai_compatible.NormalizeDataLine(scanner.Text())
 
-		logger.Debugf(c.Request.Context(), "receive stream event: %s", data)
+		logger.Logger.Debug(fmt.Sprintf("receive stream event: %s", data))
 
 		if !strings.HasPrefix(data, dataPrefix) {
 			continue
@@ -712,7 +711,7 @@ func ResponseAPIDirectStreamHandler(c *gin.Context, resp *http.Response, relayMo
 		fullResponse, streamEvent, err := ParseResponseAPIStreamEvent([]byte(data))
 		if err != nil {
 			// Log the error with more context but continue processing
-			logger.Debugf(c.Request.Context(), "skipping unparseable stream chunk: %s, error: %s", data, err.Error())
+			logger.Logger.Debug(fmt.Sprintf("skipping unparseable stream chunk: %s, error: %s", data, err.Error()))
 			continue
 		}
 
@@ -748,7 +747,7 @@ func ResponseAPIDirectStreamHandler(c *gin.Context, resp *http.Response, relayMo
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 		return ErrorWrapper(err, "read_stream_failed", http.StatusInternalServerError), responseText, usage
 	}
 

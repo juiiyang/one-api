@@ -2,7 +2,6 @@ package openai_compatible
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,7 +65,9 @@ func NormalizeDataLine(data string) string {
 
 // ErrorWrapper creates an error response
 func ErrorWrapper(err error, code string, statusCode int) *model.ErrorWithStatusCode {
-	logger.Error(context.TODO(), fmt.Sprintf("[%s]%+v", code, err))
+	logger.Logger.Error("API error",
+		zap.String("code", code),
+		zap.Error(err))
 	return &model.ErrorWithStatusCode{
 		Error: model.Error{
 			Message: err.Error(),

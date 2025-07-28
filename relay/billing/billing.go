@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/common/helper"
 	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/model"
@@ -16,7 +18,7 @@ func ReturnPreConsumedQuota(ctx context.Context, preConsumedQuota int64, tokenId
 			// return pre-consumed quota
 			err := model.PostConsumeTokenQuota(tokenId, -preConsumedQuota)
 			if err != nil {
-				logger.Error(ctx, "error return pre-consumed quota: "+err.Error())
+				logger.Logger.Error("error return pre-consumed quota", zap.Error(err))
 			}
 		}(ctx)
 	}
@@ -28,34 +30,34 @@ func ReturnPreConsumedQuota(ctx context.Context, preConsumedQuota int64, tokenId
 func PostConsumeQuota(ctx context.Context, tokenId int, quotaDelta int64, totalQuota int64, userId int, channelId int, modelRatio float64, groupRatio float64, modelName string, tokenName string) {
 	// Input validation for safety
 	if ctx == nil {
-		logger.SysError("PostConsumeQuota: context is nil")
+		logger.Logger.Error("PostConsumeQuota: context is nil")
 		return
 	}
 	if tokenId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuota: invalid tokenId %d", tokenId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuota: invalid tokenId %d", tokenId))
 		return
 	}
 	if userId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuota: invalid userId %d", userId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuota: invalid userId %d", userId))
 		return
 	}
 	if channelId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuota: invalid channelId %d", channelId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuota: invalid channelId %d", channelId))
 		return
 	}
 	if modelName == "" {
-		logger.Error(ctx, "PostConsumeQuota: modelName is empty")
+		logger.Logger.Error("PostConsumeQuota: modelName is empty")
 		return
 	}
 
 	// quotaDelta is remaining quota to be consumed
 	err := model.PostConsumeTokenQuota(tokenId, quotaDelta)
 	if err != nil {
-		logger.SysError("error consuming token remain quota: " + err.Error())
+		logger.Logger.Error("error consuming token remain quota: " + err.Error())
 	}
 	err = model.CacheUpdateUserQuota(ctx, userId)
 	if err != nil {
-		logger.SysError("error update user quota cache: " + err.Error())
+		logger.Logger.Error("error update user quota cache: " + err.Error())
 	}
 	// totalQuota is total quota consumed
 	// Always log the request for tracking purposes, regardless of quota amount
@@ -77,7 +79,7 @@ func PostConsumeQuota(ctx context.Context, tokenId int, quotaDelta int64, totalQ
 		model.UpdateChannelUsedQuota(channelId, totalQuota)
 	}
 	if totalQuota <= 0 {
-		logger.Error(ctx, fmt.Sprintf("totalQuota consumed is %d, something is wrong", totalQuota))
+		logger.Logger.Error(fmt.Sprintf("totalQuota consumed is %d, something is wrong", totalQuota))
 	}
 }
 
@@ -91,38 +93,38 @@ func PostConsumeQuotaDetailed(ctx context.Context, tokenId int, quotaDelta int64
 	completionRatio float64, toolsCost int64) {
 	// Input validation for safety
 	if ctx == nil {
-		logger.SysError("PostConsumeQuotaDetailed: context is nil")
+		logger.Logger.Error("PostConsumeQuotaDetailed: context is nil")
 		return
 	}
 	if tokenId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuotaDetailed: invalid tokenId %d", tokenId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid tokenId %d", tokenId))
 		return
 	}
 	if userId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuotaDetailed: invalid userId %d", userId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid userId %d", userId))
 		return
 	}
 	if channelId <= 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuotaDetailed: invalid channelId %d", channelId))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid channelId %d", channelId))
 		return
 	}
 	if promptTokens < 0 || completionTokens < 0 {
-		logger.Error(ctx, fmt.Sprintf("PostConsumeQuotaDetailed: negative token counts - prompt: %d, completion: %d", promptTokens, completionTokens))
+		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: negative token counts - prompt: %d, completion: %d", promptTokens, completionTokens))
 		return
 	}
 	if modelName == "" {
-		logger.Error(ctx, "PostConsumeQuotaDetailed: modelName is empty")
+		logger.Logger.Error("PostConsumeQuotaDetailed: modelName is empty")
 		return
 	}
 
 	// quotaDelta is remaining quota to be consumed
 	err := model.PostConsumeTokenQuota(tokenId, quotaDelta)
 	if err != nil {
-		logger.SysError("error consuming token remain quota: " + err.Error())
+		logger.Logger.Error("error consuming token remain quota: " + err.Error())
 	}
 	err = model.CacheUpdateUserQuota(ctx, userId)
 	if err != nil {
-		logger.SysError("error update user quota cache: " + err.Error())
+		logger.Logger.Error("error update user quota cache: " + err.Error())
 	}
 
 	// totalQuota is total quota consumed
@@ -153,6 +155,6 @@ func PostConsumeQuotaDetailed(ctx context.Context, tokenId int, quotaDelta int64
 		model.UpdateChannelUsedQuota(channelId, totalQuota)
 	}
 	if totalQuota <= 0 {
-		logger.Error(ctx, fmt.Sprintf("totalQuota consumed is %d, something is wrong", totalQuota))
+		logger.Logger.Error(fmt.Sprintf("totalQuota consumed is %d, something is wrong", totalQuota))
 	}
 }

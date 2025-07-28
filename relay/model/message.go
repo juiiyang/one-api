@@ -1,8 +1,9 @@
 package model
 
 import (
-	"context"
 	"strings"
+
+	"github.com/Laisky/zap"
 
 	"github.com/songquanpeng/one-api/common/logger"
 )
@@ -92,7 +93,7 @@ func (m *Message) SetReasoningContent(format string, reasoningContent string) {
 		ReasoningFormatUnspecified:
 		m.Reasoning = &reasoningContent
 	default:
-		logger.Warnf(context.TODO(), "unknown reasoning format: %q", format)
+		logger.Logger.Warn("unknown reasoning format", zap.String("format", format))
 	}
 }
 
@@ -186,7 +187,7 @@ func (m Message) ParseContent() []MessageContent {
 					})
 				}
 			default:
-				logger.Warnf(context.TODO(), "unknown content type: %s", contentMap["type"])
+				logger.Logger.Warn("unknown content type", zap.Any("type", contentMap["type"]))
 			}
 		}
 

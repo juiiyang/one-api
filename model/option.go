@@ -87,7 +87,7 @@ func loadOptionsFromDatabase() {
 		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
-			logger.SysError("failed to update option map: " + err.Error())
+			logger.Logger.Error("failed to update option map: " + err.Error())
 		}
 	}
 }
@@ -95,7 +95,7 @@ func loadOptionsFromDatabase() {
 func SyncOptions(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Second)
-		logger.SysLog("syncing options from database")
+		logger.Logger.Info("syncing options from database")
 		loadOptionsFromDatabase()
 	}
 }

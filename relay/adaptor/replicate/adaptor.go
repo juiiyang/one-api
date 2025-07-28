@@ -308,7 +308,7 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Request, meta *me
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, meta *meta.Meta, requestBody io.Reader) (*http.Response, error) {
-	logger.Info(c, "send request to replicate")
+	logger.Logger.Info("send request to replicate")
 	return adaptor.DoRequestHelper(a, c, meta, requestBody)
 }
 

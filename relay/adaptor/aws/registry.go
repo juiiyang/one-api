@@ -1,7 +1,7 @@
 package aws
 
 import (
-	"context"
+	"fmt"
 	"regexp"
 
 	"github.com/songquanpeng/one-api/common/logger"
@@ -31,7 +31,7 @@ func init() {
 	}
 	match, err := regexp.Compile("arn:aws:bedrock.+claude")
 	if err != nil {
-		logger.Warnf(context.Background(), "compile %v", err)
+		logger.Logger.Warn(fmt.Sprintf("compile %v", err))
 		return
 	}
 	awsArnMatch = match

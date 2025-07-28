@@ -253,7 +253,7 @@ func updateChannelSiliconFlowBalance(channel *model.Channel) (float64, error) {
 		return 0, err
 	}
 	if response.Code != 20000 {
-		return 0, fmt.Errorf("code: %d, message: %s", response.Code, response.Message)
+		return 0, errors.Errorf("code: %d, message: %s", response.Code, response.Message)
 	}
 	balance, err := strconv.ParseFloat(response.Data.TotalBalance, 64)
 	if err != nil {
@@ -452,8 +452,8 @@ func UpdateAllChannelsBalance(c *gin.Context) {
 func AutomaticallyUpdateChannels(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Minute)
-		logger.SysLog("updating all channels")
+		logger.Logger.Info("updating all channels")
 		_ = updateAllChannelsBalance()
-		logger.SysLog("channels update done")
+		logger.Logger.Info("channels update done")
 	}
 }

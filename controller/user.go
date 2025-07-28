@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	gcrypto "github.com/Laisky/go-utils/v5/crypto"
+	"github.com/Laisky/zap"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 
@@ -139,7 +139,7 @@ func SetupLogin(user *model.User, c *gin.Context) {
 	session.Set("status", user.Status)
 	err := session.Save()
 	if err != nil {
-		logger.Errorf(c.Request.Context(), "Unable to save login session information: %+v", err)
+		logger.Logger.Error(fmt.Sprintf("Unable to save login session information: %+v", err))
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Unable to save login session information, please try again",
 			"success": false,
@@ -1250,7 +1250,7 @@ func verifyTotpCode(uid int, secret, code string) bool {
 
 	// Check if this TOTP code has been used recently (replay protection)
 	if common.IsTotpCodeUsed(uid, code) {
-		logger.Warnf(context.Background(), "TOTP code replay attempt detected for user %d", uid)
+		logger.Logger.Warn(fmt.Sprintf("TOTP code replay attempt detected for user %d", uid))
 		return false
 	}
 
@@ -1270,7 +1270,7 @@ func verifyTotpCode(uid int, secret, code string) bool {
 	// Mark the code as used to prevent replay attacks
 	err = common.MarkTotpCodeAsUsed(uid, code)
 	if err != nil {
-		logger.SysError("Failed to mark TOTP code as used: " + err.Error())
+		logger.Logger.Error("Failed to mark TOTP code as used", zap.Error(err))
 		// Don't fail the verification if we can't mark it as used
 		// This ensures the system remains functional even if Redis/cache fails
 	}

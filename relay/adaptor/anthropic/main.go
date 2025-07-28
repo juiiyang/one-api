@@ -2,7 +2,6 @@ package anthropic
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
@@ -621,7 +621,7 @@ func StreamResponseClaude2OpenAI(c *gin.Context, claudeResponse *StreamResponse)
 		"message_stop",
 		"content_block_stop":
 	default:
-		logger.SysErrorf("unknown stream response type %q", claudeResponse.Type)
+		logger.Logger.Error(fmt.Sprintf("unknown stream response type %q", claudeResponse.Type))
 	}
 
 	// Cache signature if present (for thinking blocks)
@@ -673,7 +673,7 @@ func ResponseClaude2OpenAI(c *gin.Context, claudeResponse *Response) *openai.Tex
 			if v.Thinking != nil {
 				reasoningText += *v.Thinking
 			} else {
-				logger.Errorf(context.Background(), "thinking is nil in response")
+				logger.Logger.Error("thinking is nil in response")
 			}
 			// Cache signature if present
 			if v.Signature != nil {
@@ -699,7 +699,7 @@ func ResponseClaude2OpenAI(c *gin.Context, claudeResponse *Response) *openai.Tex
 		case "text":
 			responseText += v.Text
 		default:
-			logger.Warnf(context.Background(), "unknown response type %q", v.Type)
+			logger.Logger.Warn("unknown response type", zap.String("type", v.Type))
 		}
 
 		if v.Type == "tool_use" {
@@ -766,7 +766,7 @@ func ClaudeNativeStreamHandler(c *gin.Context, resp *http.Response) (*model.Erro
 		data = strings.TrimPrefix(data, "data:")
 		data = strings.TrimSpace(data)
 
-		logger.Debugf(c.Request.Context(), "stream <- %q\n", data)
+		logger.Logger.Debug(fmt.Sprintf("stream <- %q\n", data))
 
 		// For Claude native streaming, we pass through the events directly
 		c.Writer.Write([]byte("data: " + data + "\n\n"))
@@ -776,7 +776,7 @@ func ClaudeNativeStreamHandler(c *gin.Context, resp *http.Response) (*model.Erro
 		var claudeResponse StreamResponse
 		err := json.Unmarshal([]byte(data), &claudeResponse)
 		if err != nil {
-			logger.SysError("error unmarshalling stream response: " + err.Error())
+			logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 			continue
 		}
 
@@ -788,7 +788,7 @@ func ClaudeNativeStreamHandler(c *gin.Context, resp *http.Response) (*model.Erro
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 	}
 
 	// Send final data: [DONE] to close the stream
@@ -832,12 +832,12 @@ func StreamHandler(c *gin.Context, resp *http.Response) (*model.ErrorWithStatusC
 		data = strings.TrimPrefix(data, "data:")
 		data = strings.TrimSpace(data)
 
-		logger.Debugf(c.Request.Context(), "stream <- %q\n", data)
+		logger.Logger.Debug(fmt.Sprintf("stream <- %q\n", data))
 
 		var claudeResponse StreamResponse
 		err := json.Unmarshal([]byte(data), &claudeResponse)
 		if err != nil {
-			logger.SysError("error unmarshalling stream response: " + err.Error())
+			logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 			continue
 		}
 
@@ -882,12 +882,12 @@ func StreamHandler(c *gin.Context, resp *http.Response) (*model.ErrorWithStatusC
 		}
 		err = render.ObjectData(c, response)
 		if err != nil {
-			logger.SysError(err.Error())
+			logger.Logger.Error(err.Error())
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 	}
 
 	render.Done(c)
@@ -910,7 +910,7 @@ func ClaudeNativeHandler(c *gin.Context, resp *http.Response, promptTokens int, 
 		return openai.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
 
-	logger.Debugf(c.Request.Context(), "response <- %s\n", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("response <- %s\n", string(responseBody)))
 
 	var claudeResponse Response
 	err = json.Unmarshal(responseBody, &claudeResponse)
@@ -957,7 +957,7 @@ func Handler(c *gin.Context, resp *http.Response, promptTokens int, modelName st
 		return openai.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}
 
-	logger.Debugf(c.Request.Context(), "response <- %s\n", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("response <- %s\n", string(responseBody)))
 
 	var claudeResponse Response
 	err = json.Unmarshal(responseBody, &claudeResponse)

@@ -189,7 +189,7 @@ func testChannel(ctx context.Context, channel *model.Channel, request *relaymode
 
 		go model.RecordTestLog(ctx, testLog)
 	}()
-	logger.SysLog(string(jsonData))
+	logger.Logger.Info(string(jsonData))
 	requestBody := bytes.NewBuffer(jsonData)
 	c.Request.Body = io.NopCloser(requestBody)
 	var resp *http.Response
@@ -221,7 +221,7 @@ func testChannel(ctx context.Context, channel *model.Channel, request *relaymode
 	rawResponse := w.Body.String()
 	_, responseMessage, err = parseTestResponse(rawResponse)
 	if err != nil {
-		logger.SysError(fmt.Sprintf("failed to parse error: %s, \nresponse: %s", err.Error(), rawResponse))
+		logger.Logger.Error(fmt.Sprintf("failed to parse error: %s, \nresponse: %s", err.Error(), rawResponse))
 		return "", err, nil
 	}
 	result := w.Result()
@@ -231,7 +231,7 @@ func testChannel(ctx context.Context, channel *model.Channel, request *relaymode
 	if err != nil {
 		return "", err, nil
 	}
-	logger.SysLog(fmt.Sprintf("testing channel #%d, response: \n%s", channel.Id, string(respBody)))
+	logger.Logger.Info(fmt.Sprintf("testing channel #%d, response: \n%s", channel.Id, string(respBody)))
 	return responseMessage, nil, nil
 }
 
@@ -335,7 +335,7 @@ func testChannels(ctx context.Context, notify bool, scope string) error {
 		if notify {
 			err := message.Notify(message.ByAll, "Channel test completed", "", "Channel test completed, if you have not received the disable notification, it means that all channels are normal")
 			if err != nil {
-				logger.SysError(fmt.Sprintf("failed to send notify: %s", err.Error()))
+				logger.Logger.Error(fmt.Sprintf("failed to send notify: %s", err.Error()))
 			}
 		}
 	}()
@@ -367,8 +367,8 @@ func AutomaticallyTestChannels(frequency int) {
 	ctx := context.Background()
 	for {
 		time.Sleep(time.Duration(frequency) * time.Minute)
-		logger.SysLog("testing all channels")
+		logger.Logger.Info("testing all channels")
 		_ = testChannels(ctx, false, "all")
-		logger.SysLog("channel test finished")
+		logger.Logger.Info("channel test finished")
 	}
 }

@@ -12,6 +12,7 @@ import (
 
 	gmw "github.com/Laisky/gin-middlewares/v6"
 	glog "github.com/Laisky/go-utils/v5/log"
+	"github.com/Laisky/zap"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -39,13 +40,13 @@ var buildFS embed.FS
 func main() {
 	common.Init()
 	logger.SetupLogger()
-	logger.SysLogf("One API %s started", common.Version)
+	logger.Logger.Info(fmt.Sprintf("One API %s started", common.Version))
 
 	if os.Getenv("GIN_MODE") != gin.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	if config.DebugEnabled {
-		logger.SysLog("running in debug mode")
+		logger.Logger.Info("running in debug mode")
 	}
 
 	// Initialize SQL Database
@@ -55,31 +56,31 @@ func main() {
 	var err error
 	err = model.CreateRootAccountIfNeed()
 	if err != nil {
-		logger.FatalLog("database init error: " + err.Error())
+		logger.Logger.Fatal("database init error", zap.Error(err))
 	}
 	defer func() {
 		err := model.CloseDB()
 		if err != nil {
-			logger.FatalLog("failed to close database: " + err.Error())
+			logger.Logger.Fatal("failed to close database", zap.Error(err))
 		}
 	}()
 
 	// Initialize Redis
 	err = common.InitRedisClient()
 	if err != nil {
-		logger.FatalLog("failed to initialize Redis: " + err.Error())
+		logger.Logger.Fatal("failed to initialize Redis: " + err.Error())
 	}
 
 	// Initialize options
 	model.InitOptionMap()
-	logger.SysLog(fmt.Sprintf("using theme %s", config.Theme))
+	logger.Logger.Info(fmt.Sprintf("using theme %s", config.Theme))
 	if common.RedisEnabled {
 		// for compatibility with old versions
 		config.MemoryCacheEnabled = true
 	}
 	if config.MemoryCacheEnabled {
-		logger.SysLog("memory cache enabled")
-		logger.SysLog(fmt.Sprintf("sync frequency: %d seconds", config.SyncFrequency))
+		logger.Logger.Info("memory cache enabled")
+		logger.Logger.Info(fmt.Sprintf("sync frequency: %d seconds", config.SyncFrequency))
 		model.InitChannelCache()
 	}
 	if config.MemoryCacheEnabled {
@@ -89,30 +90,30 @@ func main() {
 	if os.Getenv("CHANNEL_TEST_FREQUENCY") != "" {
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_TEST_FREQUENCY"))
 		if err != nil {
-			logger.FatalLog("failed to parse CHANNEL_TEST_FREQUENCY: " + err.Error())
+			logger.Logger.Fatal("failed to parse CHANNEL_TEST_FREQUENCY: " + err.Error())
 		}
 		go controller.AutomaticallyTestChannels(frequency)
 	}
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		config.BatchUpdateEnabled = true
-		logger.SysLog("batch update enabled with interval " + strconv.Itoa(config.BatchUpdateInterval) + "s")
+		logger.Logger.Info("batch update enabled with interval " + strconv.Itoa(config.BatchUpdateInterval) + "s")
 		model.InitBatchUpdater()
 	}
 	if config.EnableMetric {
-		logger.SysLog("metric enabled, will disable channel if too much request failed")
+		logger.Logger.Info("metric enabled, will disable channel if too much request failed")
 	}
 
 	// Initialize Prometheus monitoring
 	if config.EnablePrometheusMetrics {
 		startTime := time.Unix(common.StartTime, 0)
 		if err := monitor.InitPrometheusMonitoring(common.Version, startTime.Format(time.RFC3339), runtime.Version(), startTime); err != nil {
-			logger.FatalLog("failed to initialize Prometheus monitoring: " + err.Error())
+			logger.Logger.Fatal("failed to initialize Prometheus monitoring: " + err.Error())
 		}
-		logger.SysLog("Prometheus monitoring initialized")
+		logger.Logger.Info("Prometheus monitoring initialized")
 
 		// Initialize database monitoring
 		if err := model.InitPrometheusDBMonitoring(); err != nil {
-			logger.FatalLog("failed to initialize database monitoring: " + err.Error())
+			logger.Logger.Fatal("failed to initialize database monitoring: " + err.Error())
 		}
 
 		// Initialize Redis monitoring if enabled
@@ -129,17 +130,15 @@ func main() {
 
 	// Initialize i18n
 	if err := i18n.Init(); err != nil {
-		logger.FatalLog("failed to initialize i18n: " + err.Error())
+		logger.Logger.Fatal("failed to initialize i18n", zap.Error(err))
 	}
+
+	// Ensure logger is initialized
+	logger.SetupLogger()
 
 	logLevel := glog.LevelInfo
 	if config.DebugEnabled {
 		logLevel = glog.LevelDebug
-	}
-
-	ginLogger, err := glog.New(glog.WithLevel(logLevel))
-	if err != nil {
-		logger.FatalLog("failed to create logger: " + err.Error())
 	}
 
 	// Initialize HTTP server
@@ -150,7 +149,7 @@ func main() {
 		gmw.NewLoggerMiddleware(
 			gmw.WithLoggerMwColored(),
 			gmw.WithLevel(logLevel.String()),
-			gmw.WithLogger(ginLogger.Named("one-api")),
+			gmw.WithLogger(logger.Logger.Named("gin")),
 		),
 	)
 	// This will cause SSE not to work!!!
@@ -164,20 +163,20 @@ func main() {
 		server.Use(middleware.PrometheusRateLimitMiddleware())
 	}
 
-	middleware.SetUpLogger(server)
+	// middleware.SetUpLogger(server)
 
 	// Initialize session store
 	sessionSecret, err := base64.StdEncoding.DecodeString(config.SessionSecret)
 	var sessionStore cookie.Store
 	if err != nil {
-		logger.SysLog("session secret is not base64 encoded, using raw value instead")
+		logger.Logger.Info("session secret is not base64 encoded, using raw value instead")
 		sessionStore = cookie.NewStore([]byte(config.SessionSecret))
 	} else {
 		sessionStore = cookie.NewStore(sessionSecret, sessionSecret)
 	}
 
 	if config.DisableCookieSecret {
-		logger.SysWarn("DISABLE_COOKIE_SECURE is set, using insecure cookie store")
+		logger.Logger.Warn("DISABLE_COOKIE_SECURE is set, using insecure cookie store")
 		sessionStore.Options(sessions.Options{
 			Path:     "/",
 			MaxAge:   86400 * 30,
@@ -190,7 +189,7 @@ func main() {
 	// Add Prometheus metrics endpoint if enabled
 	if config.EnablePrometheusMetrics {
 		server.GET("/metrics", middleware.AdminAuth(), gin.WrapH(promhttp.Handler()))
-		logger.SysLog("Prometheus metrics endpoint available at /metrics")
+		logger.Logger.Info("Prometheus metrics endpoint available at /metrics")
 	}
 
 	router.SetRouter(server, buildFS)
@@ -198,9 +197,9 @@ func main() {
 	if port == "" {
 		port = strconv.Itoa(*common.Port)
 	}
-	logger.SysLogf("server started on http://localhost:%s", port)
+	logger.Logger.Info(fmt.Sprintf("server started on http://localhost:%s", port))
 	err = server.Run(":" + port)
 	if err != nil {
-		logger.FatalLog("failed to start HTTP server: " + err.Error())
+		logger.Logger.Fatal("failed to start HTTP server: " + err.Error())
 	}
 }

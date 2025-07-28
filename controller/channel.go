@@ -237,7 +237,7 @@ func GetChannelPricing(c *gin.Context) {
 		for modelName := range modelConfigs {
 			modelNames = append(modelNames, modelName)
 		}
-		logger.SysLog(fmt.Sprintf("Channel %d (type %d) returning model configs for models: %v", channel.Id, channel.Type, modelNames))
+		logger.Logger.Info(fmt.Sprintf("Channel %d (type %d) returning model configs for models: %v", channel.Id, channel.Type, modelNames))
 	}
 
 	c.JSON(http.StatusOK, gin.H{

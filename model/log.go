@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Laisky/zap"
 	"gorm.io/gorm"
 
 	"github.com/songquanpeng/one-api/common"
@@ -45,10 +46,16 @@ func recordLogHelper(ctx context.Context, log *Log) {
 	log.RequestId = requestId
 	err := LOG_DB.Create(log).Error
 	if err != nil {
-		logger.Error(ctx, "failed to record log: "+err.Error())
+		logger.Logger.Error("failed to record log", zap.Error(err))
 		return
 	}
-	logger.Infof(ctx, "record log: %+v", log)
+	logger.Logger.Info("record log",
+		zap.Int("user_id", log.UserId),
+		zap.String("username", log.Username),
+		zap.Int64("created_at", log.CreatedAt),
+		zap.Int("type", log.Type),
+		zap.String("content", log.Content),
+		zap.String("request_id", log.RequestId))
 }
 
 func RecordLog(ctx context.Context, userId int, logType int, content string) {

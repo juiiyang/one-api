@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common/config"
@@ -39,13 +40,13 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// get & validate textRequest
 	textRequest, err := getAndValidateTextRequest(c, meta.Mode)
 	if err != nil {
-		logger.Errorf(ctx, "getAndValidateTextRequest failed: %s", err.Error())
+		logger.Logger.Error("getAndValidateTextRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "invalid_text_request", http.StatusBadRequest)
 	}
 	meta.IsStream = textRequest.Stream
 
 	if reqBody, ok := c.Get(ctxkey.KeyRequestBody); ok {
-		logger.Debugf(c.Request.Context(), "get text request: %s\n", string(reqBody.([]byte)))
+		logger.Logger.Debug("get text request", zap.ByteString("body", reqBody.([]byte)))
 	}
 
 	// map model name
@@ -78,7 +79,7 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	meta.PromptTokens = promptTokens
 	preConsumedQuota, bizErr := preConsumeQuota(c, textRequest, promptTokens, ratio, meta)
 	if bizErr != nil {
-		logger.Warnf(ctx, "preConsumeQuota failed: %+v", *bizErr)
+		logger.Logger.Warn("preConsumeQuota failed", zap.Any("error", *bizErr))
 		return bizErr
 	}
 
@@ -101,7 +102,7 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// do request
 	resp, err := adaptor.DoRequest(c, meta, requestBody)
 	if err != nil {
-		logger.Errorf(ctx, "DoRequest failed: %s", err.Error())
+		logger.Logger.Error("DoRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 	if isErrorHappened(meta, resp) {
@@ -112,7 +113,7 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// do response
 	usage, respErr := adaptor.DoResponse(c, resp, meta)
 	if respErr != nil {
-		logger.Errorf(ctx, "respErr is not nil: %+v", respErr)
+		logger.Logger.Error("respErr is not nil", zap.Any("error", respErr))
 		billing.ReturnPreConsumedQuota(ctx, preConsumedQuota, meta.TokenId)
 		return respErr
 	}
@@ -186,7 +187,7 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 					quota,
 				)
 				if err = docu.Insert(); err != nil {
-					logger.Errorf(ctx, "insert user request cost failed: %+v", err)
+					logger.Logger.Error("insert user request cost failed", zap.Error(err))
 				}
 			}
 			done <- true
@@ -197,8 +198,12 @@ func RelayTextHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 			// Billing completed successfully
 		case <-ctx.Done():
 			if ctx.Err() == context.DeadlineExceeded {
-				logger.Errorf(context.Background(), "CRITICAL BILLING TIMEOUT: model=%s, requestId=%s, userId=%d, estimatedQuota=%d, elapsedTime=%v",
-					textRequest.Model, requestId, meta.UserId, int64(float64(usage.PromptTokens+usage.CompletionTokens)*ratio), time.Since(meta.StartTime))
+				logger.Logger.Error("CRITICAL BILLING TIMEOUT",
+					zap.String("model", textRequest.Model),
+					zap.String("requestId", requestId),
+					zap.Int("userId", meta.UserId),
+					zap.Int64("estimatedQuota", int64(float64(usage.PromptTokens+usage.CompletionTokens)*ratio)),
+					zap.Duration("elapsedTime", time.Since(meta.StartTime)))
 				// TODO: Implement dead letter queue or retry mechanism for failed billing
 			}
 		}
@@ -221,17 +226,17 @@ func getRequestBody(c *gin.Context, meta *metalib.Meta, textRequest *relaymodel.
 	var requestBody io.Reader
 	convertedRequest, err := adaptor.ConvertRequest(c, meta.Mode, textRequest)
 	if err != nil {
-		logger.Debugf(c.Request.Context(), "converted request failed: %s\n", err.Error())
+		logger.Logger.Debug("converted request failed", zap.Error(err))
 		return nil, err
 	}
 	c.Set(ctxkey.ConvertedRequest, convertedRequest)
 
 	jsonData, err := json.Marshal(convertedRequest)
 	if err != nil {
-		logger.Debugf(c.Request.Context(), "converted request json_marshal_failed: %s\n", err.Error())
+		logger.Logger.Debug("converted request json_marshal_failed", zap.Error(err))
 		return nil, err
 	}
-	logger.Debugf(c.Request.Context(), "converted request: \n%s", string(jsonData))
+	logger.Logger.Debug("converted request", zap.ByteString("json", jsonData))
 	requestBody = bytes.NewBuffer(jsonData)
 	return requestBody, nil
 }
