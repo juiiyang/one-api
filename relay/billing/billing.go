@@ -9,6 +9,7 @@ import (
 
 	"github.com/songquanpeng/one-api/common/helper"
 	"github.com/songquanpeng/one-api/common/logger"
+	"github.com/songquanpeng/one-api/common/metrics"
 	"github.com/songquanpeng/one-api/model"
 )
 
@@ -91,29 +92,40 @@ func PostConsumeQuotaDetailed(ctx context.Context, tokenId int, quotaDelta int64
 	modelRatio float64, groupRatio float64, modelName string, tokenName string,
 	isStream bool, startTime time.Time, systemPromptReset bool,
 	completionRatio float64, toolsCost int64) {
+
+	// Record billing operation start time for monitoring
+	billingStartTime := time.Now()
+	billingSuccess := true
+
 	// Input validation for safety
 	if ctx == nil {
 		logger.Logger.Error("PostConsumeQuotaDetailed: context is nil")
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 	if tokenId <= 0 {
 		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid tokenId %d", tokenId))
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 	if userId <= 0 {
 		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid userId %d", userId))
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 	if channelId <= 0 {
 		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: invalid channelId %d", channelId))
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 	if promptTokens < 0 || completionTokens < 0 {
 		logger.Logger.Error(fmt.Sprintf("PostConsumeQuotaDetailed: negative token counts - prompt: %d, completion: %d", promptTokens, completionTokens))
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 	if modelName == "" {
 		logger.Logger.Error("PostConsumeQuotaDetailed: modelName is empty")
+		metrics.GlobalRecorder.RecordBillingError("validation_error", "post_consume_detailed", userId, channelId, modelName)
 		return
 	}
 
@@ -121,10 +133,14 @@ func PostConsumeQuotaDetailed(ctx context.Context, tokenId int, quotaDelta int64
 	err := model.PostConsumeTokenQuota(tokenId, quotaDelta)
 	if err != nil {
 		logger.Logger.Error("error consuming token remain quota: " + err.Error())
+		metrics.GlobalRecorder.RecordBillingError("database_error", "post_consume_token_quota", userId, channelId, modelName)
+		billingSuccess = false
 	}
 	err = model.CacheUpdateUserQuota(ctx, userId)
 	if err != nil {
 		logger.Logger.Error("error update user quota cache: " + err.Error())
+		metrics.GlobalRecorder.RecordBillingError("cache_error", "update_user_quota_cache", userId, channelId, modelName)
+		billingSuccess = false
 	}
 
 	// totalQuota is total quota consumed
@@ -156,5 +172,10 @@ func PostConsumeQuotaDetailed(ctx context.Context, tokenId int, quotaDelta int64
 	}
 	if totalQuota <= 0 {
 		logger.Logger.Error(fmt.Sprintf("totalQuota consumed is %d, something is wrong", totalQuota))
+		metrics.GlobalRecorder.RecordBillingError("calculation_error", "post_consume_detailed", userId, channelId, modelName)
+		billingSuccess = false
 	}
+
+	// Record billing operation completion
+	metrics.GlobalRecorder.RecordBillingOperation(billingStartTime, "post_consume_detailed", billingSuccess, userId, channelId, modelName, float64(totalQuota))
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/songquanpeng/one-api/common/config"
 	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/common/logger"
+	"github.com/songquanpeng/one-api/common/metrics"
 	"github.com/songquanpeng/one-api/model"
 	"github.com/songquanpeng/one-api/relay"
 	"github.com/songquanpeng/one-api/relay/adaptor"
@@ -110,7 +111,7 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 
 	go func() {
 		// Use configurable billing timeout with model-specific adjustments
-		baseBillingTimeout := time.Duration(config.BillingTimeout) * time.Second
+		baseBillingTimeout := time.Duration(config.BillingTimeoutSec) * time.Second
 		billingTimeout := baseBillingTimeout
 
 		ctx, cancel := context.WithTimeout(context.Background(), billingTimeout)
@@ -142,12 +143,19 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 			// Billing completed successfully
 		case <-ctx.Done():
 			if ctx.Err() == context.DeadlineExceeded {
+				estimatedQuota := float64(usage.PromptTokens+usage.CompletionTokens) * ratio
+				elapsedTime := time.Since(meta.StartTime)
+
 				logger.Logger.Error("CRITICAL BILLING TIMEOUT",
 					zap.String("model", responseAPIRequest.Model),
 					zap.String("requestId", requestId),
 					zap.Int("userId", meta.UserId),
-					zap.Int64("estimatedQuota", int64(float64(usage.PromptTokens+usage.CompletionTokens)*ratio)),
-					zap.Duration("elapsedTime", time.Since(meta.StartTime)))
+					zap.Int64("estimatedQuota", int64(estimatedQuota)),
+					zap.Duration("elapsedTime", elapsedTime))
+
+				// Record billing timeout in metrics
+				metrics.GlobalRecorder.RecordBillingTimeout(meta.UserId, meta.ChannelId, responseAPIRequest.Model, estimatedQuota, elapsedTime)
+
 				// TODO: Implement dead letter queue or retry mechanism for failed billing
 			}
 		}

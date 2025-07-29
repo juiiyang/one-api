@@ -190,6 +190,38 @@ var (
 		Help:    "Model response latency in seconds",
 		Buckets: []float64{.1, .25, .5, 1, 2.5, 5, 10, 30, 60, 120},
 	}, []string{"model_name", "channel_type"})
+
+	// Billing metrics
+	billingOperationDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "one_api_billing_operation_duration_seconds",
+		Help:    "Duration of billing operations in seconds",
+		Buckets: []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10, 30},
+	}, []string{"operation", "success", "user_id", "channel_id", "model_name"})
+
+	billingOperationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "one_api_billing_operations_total",
+		Help: "Total number of billing operations",
+	}, []string{"operation", "success", "user_id", "channel_id", "model_name"})
+
+	billingTimeoutsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "one_api_billing_timeouts_total",
+		Help: "Total number of billing timeouts",
+	}, []string{"user_id", "channel_id", "model_name"})
+
+	billingErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "one_api_billing_errors_total",
+		Help: "Total number of billing errors",
+	}, []string{"error_type", "operation", "user_id", "channel_id", "model_name"})
+
+	billingQuotaProcessed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "one_api_billing_quota_processed_total",
+		Help: "Total quota processed through billing operations",
+	}, []string{"operation", "user_id", "channel_id", "model_name"})
+
+	billingStats = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "one_api_billing_stats",
+		Help: "Current billing statistics",
+	}, []string{"stat_type"}) // stat_type: total_operations, successful_operations, failed_operations
 )
 
 // RecordHTTPRequest records HTTP request metrics
@@ -323,6 +355,47 @@ func (p *PrometheusRecorder) RecordError(errorType, component string) {
 func (p *PrometheusRecorder) RecordModelUsage(modelName, channelType string, latency time.Duration) {
 	modelUsage.WithLabelValues(modelName, channelType).Inc()
 	modelLatency.WithLabelValues(modelName, channelType).Observe(latency.Seconds())
+}
+
+// RecordBillingOperation records billing operation metrics
+func (p *PrometheusRecorder) RecordBillingOperation(startTime time.Time, operation string, success bool, userId int, channelId int, modelName string, quotaAmount float64) {
+	duration := time.Since(startTime).Seconds()
+	userIdStr := strconv.Itoa(userId)
+	channelIdStr := strconv.Itoa(channelId)
+	successStr := strconv.FormatBool(success)
+
+	billingOperationDuration.WithLabelValues(operation, successStr, userIdStr, channelIdStr, modelName).Observe(duration)
+	billingOperationsTotal.WithLabelValues(operation, successStr, userIdStr, channelIdStr, modelName).Inc()
+
+	if quotaAmount > 0 {
+		billingQuotaProcessed.WithLabelValues(operation, userIdStr, channelIdStr, modelName).Add(quotaAmount)
+	}
+}
+
+// RecordBillingTimeout records billing timeout events
+func (p *PrometheusRecorder) RecordBillingTimeout(userId int, channelId int, modelName string, estimatedQuota float64, elapsedTime time.Duration) {
+	userIdStr := strconv.Itoa(userId)
+	channelIdStr := strconv.Itoa(channelId)
+
+	billingTimeoutsTotal.WithLabelValues(userIdStr, channelIdStr, modelName).Inc()
+
+	// Also record as a billing error
+	billingErrorsTotal.WithLabelValues("timeout", "post_consume", userIdStr, channelIdStr, modelName).Inc()
+}
+
+// RecordBillingError records billing error events
+func (p *PrometheusRecorder) RecordBillingError(errorType, operation string, userId int, channelId int, modelName string) {
+	userIdStr := strconv.Itoa(userId)
+	channelIdStr := strconv.Itoa(channelId)
+
+	billingErrorsTotal.WithLabelValues(errorType, operation, userIdStr, channelIdStr, modelName).Inc()
+}
+
+// UpdateBillingStats updates overall billing statistics
+func (p *PrometheusRecorder) UpdateBillingStats(totalBillingOperations, successfulBillingOperations, failedBillingOperations int64) {
+	billingStats.WithLabelValues("total_operations").Set(float64(totalBillingOperations))
+	billingStats.WithLabelValues("successful_operations").Set(float64(successfulBillingOperations))
+	billingStats.WithLabelValues("failed_operations").Set(float64(failedBillingOperations))
 }
 
 // InitSystemMetrics initializes system-wide metrics
