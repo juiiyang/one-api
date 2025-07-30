@@ -24,20 +24,20 @@ var tokenEncoderMap = map[string]*tiktoken.Tiktoken{}
 var defaultTokenEncoder *tiktoken.Tiktoken
 
 func InitTokenEncoders() {
-	logger.SysLog("initializing token encoders")
+	logger.Logger.Info("initializing token encoders")
 	gpt35TokenEncoder, err := tiktoken.EncodingForModel("gpt-3.5-turbo")
 	if err != nil {
-		logger.FatalLog(fmt.Sprintf("failed to get gpt-3.5-turbo token encoder: %s, "+
+		logger.Logger.Fatal(fmt.Sprintf("failed to get gpt-3.5-turbo token encoder: %s, "+
 			"if you are using in offline environment, please set TIKTOKEN_CACHE_DIR to use exsited files, check this link for more information: https://stackoverflow.com/questions/76106366/how-to-use-tiktoken-in-offline-mode-computer ", err.Error()))
 	}
 	defaultTokenEncoder = gpt35TokenEncoder
 	gpt4oTokenEncoder, err := tiktoken.EncodingForModel("gpt-4o")
 	if err != nil {
-		logger.FatalLog(fmt.Sprintf("failed to get gpt-4o token encoder: %s", err.Error()))
+		logger.Logger.Fatal(fmt.Sprintf("failed to get gpt-4o token encoder: %s", err.Error()))
 	}
 	gpt4TokenEncoder, err := tiktoken.EncodingForModel("gpt-4")
 	if err != nil {
-		logger.FatalLog(fmt.Sprintf("failed to get gpt-4 token encoder: %s", err.Error()))
+		logger.Logger.Fatal(fmt.Sprintf("failed to get gpt-4 token encoder: %s", err.Error()))
 	}
 	// Initialize token encoders for OpenAI models using adapter's own pricing
 	adaptor := &Adaptor{}
@@ -53,7 +53,7 @@ func InitTokenEncoders() {
 			tokenEncoderMap[model] = nil
 		}
 	}
-	logger.SysLog("token encoders initialized")
+	logger.Logger.Info("token encoders initialized")
 }
 
 func getTokenEncoder(model string) *tiktoken.Tiktoken {
@@ -64,7 +64,7 @@ func getTokenEncoder(model string) *tiktoken.Tiktoken {
 	if ok {
 		tokenEncoder, err := tiktoken.EncodingForModel(model)
 		if err != nil {
-			logger.SysError(fmt.Sprintf("failed to get token encoder for model %s: %s, using encoder for gpt-3.5-turbo", model, err.Error()))
+			logger.Logger.Error(fmt.Sprintf("failed to get token encoder for model %s: %s, using encoder for gpt-3.5-turbo", model, err.Error()))
 			tokenEncoder = defaultTokenEncoder
 		}
 		tokenEncoderMap[model] = tokenEncoder
@@ -116,21 +116,21 @@ func CountTokenMessages(ctx context.Context,
 					content.ImageURL.Detail,
 					actualModel)
 				if err != nil {
-					logger.SysError("error counting image tokens: " + err.Error())
+					logger.Logger.Error("error counting image tokens: " + err.Error())
 				} else {
 					tokenNum += imageTokens
 				}
 			case model.ContentTypeInputAudio:
 				audioData, err := base64.StdEncoding.DecodeString(content.InputAudio.Data)
 				if err != nil {
-					logger.SysError("error decoding audio data: " + err.Error())
+					logger.Logger.Error("error decoding audio data: " + err.Error())
 				}
 
 				audioTokens, err := helper.GetAudioTokens(ctx,
 					bytes.NewReader(audioData),
 					ratio.GetAudioPromptTokensPerSecond(actualModel))
 				if err != nil {
-					logger.SysError("error counting audio tokens: " + err.Error())
+					logger.Logger.Error("error counting audio tokens: " + err.Error())
 				} else {
 					totalAudioTokens += audioTokens
 				}

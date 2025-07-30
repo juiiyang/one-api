@@ -65,7 +65,7 @@ func AwsClaudeModelTransArn(c *gin.Context, awsCli *bedrockruntime.Client) strin
 			arnMap := channel.GetInferenceProfileArnMap()
 			if arnMap != nil {
 				if arn, exists := arnMap[reqModelID]; exists && arn != "" {
-					logger.Debugf(c, "Using channel inference profile ARN for model %s: %s", reqModelID, arn)
+					logger.Logger.Debug(fmt.Sprintf("Using channel inference profile ARN for model %s: %s", reqModelID, arn))
 					return arn
 				}
 			}
@@ -95,7 +95,7 @@ func Handler(c *gin.Context, awsCli *bedrockruntime.Client, modelName string) (*
 
 	if arn := AwsClaudeModelTransArn(c, awsCli); arn != "" {
 		awsReq.ModelId = aws.String(arn)
-		logger.Debugf(c, "final use modelID [%s]", arn)
+		logger.Logger.Debug(fmt.Sprintf("final use modelID [%s]", arn))
 	}
 
 	claudeReq_, ok := c.Get(ctxkey.ConvertedRequest)
@@ -165,7 +165,7 @@ func StreamHandler(c *gin.Context, awsCli *bedrockruntime.Client) (*relaymodel.E
 
 	if arn := AwsClaudeModelTransArn(c, awsCli); arn != "" {
 		awsReq.ModelId = aws.String(arn)
-		logger.Debugf(c, "final use modelID [%s]", arn)
+		logger.Logger.Debug(fmt.Sprintf("final use modelID [%s]", arn))
 	}
 
 	claudeReq_, ok := c.Get(ctxkey.ConvertedRequest)
@@ -219,7 +219,7 @@ func StreamHandler(c *gin.Context, awsCli *bedrockruntime.Client) (*relaymodel.E
 			claudeResp := new(anthropic.StreamResponse)
 			err := json.NewDecoder(bytes.NewReader(v.Value.Bytes)).Decode(claudeResp)
 			if err != nil {
-				logger.SysError("error unmarshalling stream response: " + err.Error())
+				logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 				return false
 			}
 
@@ -255,7 +255,7 @@ func StreamHandler(c *gin.Context, awsCli *bedrockruntime.Client) (*relaymodel.E
 			}
 			jsonStr, err := json.Marshal(response)
 			if err != nil {
-				logger.SysError("error marshalling stream response: " + err.Error())
+				logger.Logger.Error("error marshalling stream response: " + err.Error())
 				return true
 			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonStr)})

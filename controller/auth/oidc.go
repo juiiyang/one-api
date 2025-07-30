@@ -58,7 +58,7 @@ func getOidcUserInfoByCode(code string) (*OidcUser, error) {
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to the OIDC server, please try again later!")
 	}
 	defer res.Body.Close()
@@ -74,7 +74,7 @@ func getOidcUserInfoByCode(code string) (*OidcUser, error) {
 	req.Header.Set("Authorization", "Bearer "+oidcResponse.AccessToken)
 	res2, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to the OIDC server, please try again later!")
 	}
 	var oidcUser OidcUser

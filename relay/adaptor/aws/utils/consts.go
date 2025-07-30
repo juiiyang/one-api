@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -198,7 +199,7 @@ func getRegionPrefix(region string) string {
 		// Canadian and South American regions typically use US inference profiles
 		return "us"
 	default:
-		logger.Debugf(context.TODO(), "unknown region prefix for region: %s", region)
+		logger.Logger.Debug(fmt.Sprintf("unknown region prefix for region: %s", region))
 		return ""
 	}
 }
@@ -274,17 +275,17 @@ func ConvertModelID2CrossRegionProfile(model, region string) string {
 
 	regionPrefix := getRegionPrefix(region)
 	if regionPrefix == "" {
-		logger.Debugf(context.TODO(), "unsupported region for cross-region inference: %s", region)
+		logger.Logger.Debug(fmt.Sprintf("unsupported region for cross-region inference: %s", region))
 		return model
 	}
 
 	newModelID := regionPrefix + "." + model
 	if slices.Contains(CrossRegionInferences, newModelID) {
-		logger.Debugf(context.TODO(), "convert model %s to cross-region profile %s", model, newModelID)
+		logger.Logger.Debug(fmt.Sprintf("convert model %s to cross-region profile %s", model, newModelID))
 		return newModelID
 	}
 
-	logger.Debugf(context.TODO(), "no cross-region profile found for model %s in region %s", model, region)
+	logger.Logger.Debug(fmt.Sprintf("no cross-region profile found for model %s in region %s", model, region))
 	return model
 }
 
@@ -296,17 +297,17 @@ func ConvertModelID2CrossRegionProfileWithFallback(ctx context.Context, model, r
 	// If we got a cross-region profile and have a client, test availability
 	if crossRegionModel != model && client != nil {
 		if TestInferenceProfileAvailability(ctx, client, crossRegionModel) {
-			logger.Debugf(ctx, "cross-region profile %s is available", crossRegionModel)
+			logger.Logger.Debug(fmt.Sprintf("cross-region profile %s is available", crossRegionModel))
 			return crossRegionModel
 		}
-		logger.Debugf(ctx, "cross-region profile %s not available, falling back to original model", crossRegionModel)
+		logger.Logger.Debug(fmt.Sprintf("cross-region profile %s not available, falling back to original model", crossRegionModel))
 		return model
 	}
 
 	// If no client provided, return the cross-region profile anyway (best effort)
 	// This allows the system to still attempt cross-region inference
 	if crossRegionModel != model {
-		logger.Debugf(ctx, "no client provided for availability testing, using cross-region profile %s", crossRegionModel)
+		logger.Logger.Debug(fmt.Sprintf("no client provided for availability testing, using cross-region profile %s", crossRegionModel))
 		return crossRegionModel
 	}
 

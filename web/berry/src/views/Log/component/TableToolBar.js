@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useTheme } from "@mui/material/styles";
+import { useState } from "react";
 import {
   IconUser,
   IconKey,
@@ -14,7 +15,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
+  TextField,
 } from "@mui/material";
+import { API } from "utils/api";
 import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
@@ -29,6 +33,34 @@ export default function TableToolBar({
 }) {
   const theme = useTheme();
   const grey500 = theme.palette.grey[500];
+  const [userOptions, setUserOptions] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+
+  const searchUsers = async (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setUserOptions([]);
+      return;
+    }
+
+    setUserSearchLoading(true);
+    try {
+      const res = await API.get(`/api/user/search?keyword=${searchQuery}`);
+      const { success, data } = res.data;
+      if (success) {
+        const options = data.map(user => ({
+          id: user.id,
+          username: user.username,
+          label: `${user.display_name || user.username} (@${user.username})`,
+          display_name: user.display_name
+        }));
+        setUserOptions(options);
+      }
+    } catch (error) {
+      console.error('Failed to search users:', error);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
 
   return (
     <>
@@ -178,23 +210,53 @@ export default function TableToolBar({
         )}
 
         {userIsAdmin && (
-          <FormControl>
-            <InputLabel htmlFor="channel-username-label">用户名称</InputLabel>
-            <OutlinedInput
-              id="username"
-              name="username"
-              sx={{
-                minWidth: "100%",
-              }}
-              label="用户名称"
+          <FormControl sx={{ minWidth: "100%" }}>
+            <Autocomplete
+              freeSolo
+              options={userOptions}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.username}
               value={filterName.username}
-              onChange={handleFilterName}
-              placeholder="用户名称"
-              startAdornment={
-                <InputAdornment position="start">
-                  <IconUser stroke={1.5} size="20px" color={grey500} />
-                </InputAdornment>
-              }
+              onInputChange={(_, newInputValue) => {
+                searchUsers(newInputValue);
+                handleFilterName({
+                  target: { name: 'username', value: newInputValue }
+                });
+              }}
+              onChange={(_, newValue) => {
+                const username = typeof newValue === 'string' ? newValue : (newValue?.username || '');
+                handleFilterName({
+                  target: { name: 'username', value: username }
+                });
+              }}
+              loading={userSearchLoading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="用户名称"
+                  placeholder="搜索用户名称"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconUser stroke={1.5} size="20px" color={grey500} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ fontWeight: 'bold' }}>
+                      {option.display_name || option.username}
+                    </div>
+                    <div style={{ fontSize: '0.9em', color: '#666' }}>
+                      @{option.username} • ID: {option.id}
+                    </div>
+                  </div>
+                </li>
+              )}
+              noOptionsText="未找到用户"
             />
           </FormControl>
         )}

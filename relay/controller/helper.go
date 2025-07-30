@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"net/http"
 	"strings"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
@@ -91,7 +91,8 @@ func getPreConsumedQuota(textRequest *relaymodel.GeneralOpenAIRequest, promptTok
 		estimatedStructuredCost := int64(float64(estimatedCompletionTokens) * 0.25 * ratio)
 		baseQuota += estimatedStructuredCost
 
-		logger.Debugf(context.Background(), "Pre-consumption: added estimated structured output cost %d for JSON schema request", estimatedStructuredCost)
+		logger.Logger.Debug("Pre-consumption: added estimated structured output cost",
+			zap.Int64("structured_output_cost", estimatedStructuredCost))
 	}
 
 	return baseQuota
@@ -118,7 +119,7 @@ func preConsumeQuota(c *gin.Context, textRequest *relaymodel.GeneralOpenAIReques
 		// in this case, we do not pre-consume quota
 		// because the user and token have enough quota
 		preConsumedQuota = 0
-		logger.Info(c.Request.Context(), fmt.Sprintf("user %d has enough quota %d, trusted and no need to pre-consume", meta.UserId, userQuota))
+		logger.Logger.Info("user has enough quota, trusted and no need to pre-consume", zap.Int("user_id", meta.UserId), zap.Int64("user_quota", userQuota))
 	}
 	if preConsumedQuota > 0 {
 		err := model.PreConsumeTokenQuota(meta.TokenId, preConsumedQuota)
@@ -140,7 +141,7 @@ func postConsumeQuota(ctx context.Context,
 	systemPromptReset bool,
 	channelCompletionRatio map[string]float64) (quota int64) {
 	if usage == nil {
-		logger.Error(ctx, "usage is nil, which is unexpected")
+		logger.Logger.Error("usage is nil, which is unexpected")
 		return
 	}
 
@@ -207,13 +208,13 @@ func setSystemPrompt(ctx context.Context, request *relaymodel.GeneralOpenAIReque
 	}
 	if request.Messages[0].Role == role.System {
 		request.Messages[0].Content = prompt
-		logger.Infof(ctx, "rewrite system prompt")
+		logger.Logger.Info("rewrite system prompt")
 		return true
 	}
 	request.Messages = append([]relaymodel.Message{{
 		Role:    role.System,
 		Content: prompt,
 	}}, request.Messages...)
-	logger.Infof(ctx, "add system prompt")
+	logger.Logger.Info("add system prompt")
 	return true
 }

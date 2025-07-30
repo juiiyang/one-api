@@ -3,10 +3,11 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common/ctxkey"
@@ -21,25 +22,24 @@ import (
 
 // RelayProxyHelper is a helper function to proxy the request to the upstream service
 func RelayProxyHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatusCode {
-	ctx := c.Request.Context()
 	meta := metalib.GetByContext(c)
 
 	adaptor := relay.GetAdaptor(meta.APIType)
 	if adaptor == nil {
-		return openai.ErrorWrapper(fmt.Errorf("invalid api type: %d", meta.APIType), "invalid_api_type", http.StatusBadRequest)
+		return openai.ErrorWrapper(errors.Errorf("invalid api type: %d", meta.APIType), "invalid_api_type", http.StatusBadRequest)
 	}
 	adaptor.Init(meta)
 
 	resp, err := adaptor.DoRequest(c, meta, c.Request.Body)
 	if err != nil {
-		logger.Errorf(ctx, "DoRequest failed: %s", err.Error())
+		// ErrorWrapper already logs the error, so we don't need to log it here
 		return openai.ErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 
 	// do response
 	usage, respErr := adaptor.DoResponse(c, resp, meta)
 	if respErr != nil {
-		logger.Errorf(ctx, "respErr is not nil: %+v", respErr)
+		// respErr is already a structured error, no need to log it here
 		return respErr
 	}
 
@@ -73,7 +73,7 @@ func RelayProxyHelper(c *gin.Context, relayMode int) *relaymodel.ErrorWithStatus
 			0,
 		)
 		if err = docu.Insert(); err != nil {
-			logger.Errorf(ctx, "insert user request cost failed: %+v", err)
+			logger.Logger.Error("insert user request cost failed", zap.Error(err))
 		}
 	}()
 

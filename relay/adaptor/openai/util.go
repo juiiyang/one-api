@@ -1,8 +1,7 @@
 package openai
 
 import (
-	"context"
-	"fmt"
+	"github.com/Laisky/zap"
 
 	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/relay/adaptor/openai_compatible"
@@ -10,7 +9,9 @@ import (
 )
 
 func ErrorWrapper(err error, code string, statusCode int) *model.ErrorWithStatusCode {
-	logger.Error(context.TODO(), fmt.Sprintf("[%s]%+v", code, err))
+	logger.Logger.Error("API error",
+		zap.String("code", code),
+		zap.Error(err))
 
 	Error := model.Error{
 		Message: err.Error(),

@@ -1,11 +1,9 @@
 package vertexai
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/Laisky/errors/v2"
@@ -14,7 +12,11 @@ import (
 	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/relay/adaptor"
 	channelhelper "github.com/songquanpeng/one-api/relay/adaptor"
+	"github.com/songquanpeng/one-api/relay/adaptor/geminiOpenaiCompatible"
+	vertexaiClaude "github.com/songquanpeng/one-api/relay/adaptor/vertexai/claude"
 	"github.com/songquanpeng/one-api/relay/adaptor/vertexai/imagen"
+	"github.com/songquanpeng/one-api/relay/adaptor/vertexai/veo"
+	"github.com/songquanpeng/one-api/relay/billing/ratio"
 	"github.com/songquanpeng/one-api/relay/meta"
 	"github.com/songquanpeng/one-api/relay/model"
 	relayModel "github.com/songquanpeng/one-api/relay/model"
@@ -71,6 +73,13 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 		return nil, errors.New("request is nil")
 	}
 
+	meta := meta.GetByContext(c)
+
+	adaptor := GetAdaptor(meta.ActualModelName)
+	if adaptor == nil {
+		return nil, errors.Errorf("cannot found vertex adaptor for model %s", meta.ActualModelName)
+	}
+
 	// Convert Claude Messages API request to OpenAI format first
 	openaiRequest := &model.GeneralOpenAIRequest{
 		Model:       request.Model,
@@ -79,38 +88,16 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 		TopP:        request.TopP,
 		Stream:      request.Stream != nil && *request.Stream,
 		Stop:        request.StopSequences,
+		Thinking:    request.Thinking,
 	}
 
-	// Convert system prompt
-	if request.System != nil {
-		switch system := request.System.(type) {
-		case string:
-			if system != "" {
-				openaiRequest.Messages = append(openaiRequest.Messages, model.Message{
-					Role:    "system",
-					Content: system,
-				})
-			}
-		case []any:
-			// For structured system content, extract text parts
-			var systemParts []string
-			for _, block := range system {
-				if blockMap, ok := block.(map[string]any); ok {
-					if text, exists := blockMap["text"]; exists {
-						if textStr, ok := text.(string); ok {
-							systemParts = append(systemParts, textStr)
-						}
-					}
-				}
-			}
-			if len(systemParts) > 0 {
-				systemText := strings.Join(systemParts, "\n")
-				openaiRequest.Messages = append(openaiRequest.Messages, model.Message{
-					Role:    "system",
-					Content: systemText,
-				})
-			}
+	// Add system message if present
+	if request.System != "" {
+		systemMessage := model.Message{
+			Role:    "system",
+			Content: request.System,
 		}
+		openaiRequest.Messages = append(openaiRequest.Messages, systemMessage)
 	}
 
 	// Convert messages
@@ -143,19 +130,21 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 						case "image":
 							if source, exists := blockMap["source"]; exists {
 								if sourceMap, ok := source.(map[string]any); ok {
-									imageURL := model.ImageURL{}
 									if mediaType, exists := sourceMap["media_type"]; exists {
 										if data, exists := sourceMap["data"]; exists {
-											if dataStr, ok := data.(string); ok {
-												// Convert to data URL format
-												imageURL.Url = fmt.Sprintf("data:%s;base64,%s", mediaType, dataStr)
+											if mediaTypeStr, ok := mediaType.(string); ok {
+												if dataStr, ok := data.(string); ok {
+													imageURL := fmt.Sprintf("data:%s;base64,%s", mediaTypeStr, dataStr)
+													contentParts = append(contentParts, model.MessageContent{
+														Type: "image_url",
+														ImageURL: &model.ImageURL{
+															Url: imageURL,
+														},
+													})
+												}
 											}
 										}
 									}
-									contentParts = append(contentParts, model.MessageContent{
-										Type:     "image_url",
-										ImageURL: &imageURL,
-									})
 								}
 							}
 						}
@@ -165,37 +154,29 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 			if len(contentParts) > 0 {
 				openaiMessage.Content = contentParts
 			}
-		default:
-			// Fallback: convert to string
-			if contentBytes, err := json.Marshal(content); err == nil {
-				openaiMessage.Content = string(contentBytes)
-			}
 		}
 
 		openaiRequest.Messages = append(openaiRequest.Messages, openaiMessage)
 	}
 
-	// Convert tools
-	for _, tool := range request.Tools {
-		openaiTool := model.Tool{
-			Type: "function",
-			Function: model.Function{
-				Name:        tool.Name,
-				Description: tool.Description,
-			},
-		}
-
-		// Convert input schema
-		if tool.InputSchema != nil {
-			if schemaMap, ok := tool.InputSchema.(map[string]any); ok {
-				openaiTool.Function.Parameters = schemaMap
+	// Convert tools if present
+	if len(request.Tools) > 0 {
+		var tools []model.Tool
+		for _, claudeTool := range request.Tools {
+			tool := model.Tool{
+				Type: "function",
+				Function: model.Function{
+					Name:        claudeTool.Name,
+					Description: claudeTool.Description,
+					Parameters:  claudeTool.InputSchema.(map[string]any),
+				},
 			}
+			tools = append(tools, tool)
 		}
-
-		openaiRequest.Tools = append(openaiRequest.Tools, openaiTool)
+		openaiRequest.Tools = tools
 	}
 
-	// Convert tool choice
+	// Convert tool choice if present
 	if request.ToolChoice != nil {
 		openaiRequest.ToolChoice = request.ToolChoice
 	}
@@ -205,7 +186,7 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, request *model.ClaudeRequ
 	c.Set(ctxkey.OriginalClaudeRequest, request)
 
 	// Now convert the OpenAI request to VertexAI format using existing logic
-	return a.ConvertRequest(c, relaymode.ChatCompletions, openaiRequest)
+	return adaptor.ConvertRequest(c, relaymode.ChatCompletions, openaiRequest)
 }
 
 func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, meta *meta.Meta) (usage *model.Usage, err *model.ErrorWithStatusCode) {
@@ -219,89 +200,116 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, meta *meta.Met
 		}
 	}
 
-	// Check if this is a Claude Messages conversion
-	if isClaudeConversion, exists := c.Get(ctxkey.ClaudeMessagesConversion); exists && isClaudeConversion.(bool) {
-		// Get the original Claude request
-		_, exists := c.Get(ctxkey.OriginalClaudeRequest)
-		if !exists {
-			return nil, &relayModel.ErrorWithStatusCode{
-				StatusCode: http.StatusInternalServerError,
-				Error: relayModel.Error{
-					Message: "original Claude request not found",
-				},
-			}
-		}
-
-		// Process the response normally first
-		usage, err = adaptor.DoResponse(c, resp, meta)
-		if err != nil {
-			return usage, err
-		}
-
-		// Convert the OpenAI response back to Claude Messages format
-		// This would need to be implemented based on the specific response format
-		// For now, we'll pass through the response as-is since VertexAI responses
-		// are already in a compatible format for most cases
-
-		return usage, err
-	}
-
 	return adaptor.DoResponse(c, resp, meta)
 }
 
-func (a *Adaptor) GetModelList() (models []string) {
-	models = modelList
-	return
+func (a *Adaptor) GetModelList() []string {
+	// Aggregate model lists from all subadaptors
+	var models []string
+
+	// Add models from each subadaptor
+	models = append(models, adaptor.GetModelListFromPricing(vertexaiClaude.ModelRatios)...)
+	models = append(models, adaptor.GetModelListFromPricing(imagen.ModelRatios)...)
+	models = append(models, adaptor.GetModelListFromPricing(geminiOpenaiCompatible.ModelRatios)...)
+	models = append(models, adaptor.GetModelListFromPricing(veo.ModelRatios)...)
+
+	// Add VertexAI-specific models
+	models = append(models, "text-embedding-004", "aqa")
+
+	return models
 }
 
 func (a *Adaptor) GetChannelName() string {
 	return channelName
 }
 
-func (a *Adaptor) GetRequestURL(meta *meta.Meta) (string, error) {
-	var suffix string
-	var location string
-	var baseHost string
+// Pricing methods - VertexAI adapter aggregates pricing from subadaptors
+// Following DRY principles by importing ratios from each subadaptor
+func (a *Adaptor) GetDefaultModelPricing() map[string]adaptor.ModelConfig {
+	// Import pricing from subadaptors to eliminate redundancy
+	pricing := make(map[string]adaptor.ModelConfig)
 
-	switch {
-	case strings.HasPrefix(meta.ActualModelName, "gemini"):
+	// Import Claude models from claude subadaptor
+	for model, config := range vertexaiClaude.ModelRatios {
+		pricing[model] = config
+	}
+
+	// Import Imagen models from imagen subadaptor
+	for model, config := range imagen.ModelRatios {
+		pricing[model] = config
+	}
+
+	// Import Gemini models from geminiOpenaiCompatible (shared with VertexAI)
+	for model, config := range geminiOpenaiCompatible.ModelRatios {
+		pricing[model] = config
+	}
+
+	// Import Veo models from veo subadaptor
+	for model, config := range veo.ModelRatios {
+		pricing[model] = config
+	}
+
+	// Add VertexAI-specific models that don't belong to subadaptors
+	// Using global ratio.MilliTokensUsd = 0.5 for consistent quota-based pricing
+
+	// VertexAI-specific models
+	pricing["text-embedding-004"] = adaptor.ModelConfig{Ratio: 0.00001 * ratio.MilliTokensUsd, CompletionRatio: 1}
+	pricing["aqa"] = adaptor.ModelConfig{Ratio: 1, CompletionRatio: 1}
+
+	return pricing
+}
+
+func (a *Adaptor) GetModelRatio(modelName string) float64 {
+	pricing := a.GetDefaultModelPricing()
+	if price, exists := pricing[modelName]; exists {
+		return price.Ratio
+	}
+	// Default VertexAI pricing (similar to Gemini)
+	return 0.5 * ratio.MilliTokensUsd // Default quota-based pricing
+}
+
+func (a *Adaptor) GetCompletionRatio(modelName string) float64 {
+	pricing := a.GetDefaultModelPricing()
+	if price, exists := pricing[modelName]; exists {
+		return price.CompletionRatio
+	}
+	// Default completion ratio for VertexAI
+	return 3.0
+}
+
+func (a *Adaptor) GetRequestURL(meta *meta.Meta) (string, error) {
+	// Determine the endpoint suffix based on model type and streaming
+	var suffix string
+
+	// Check if this is a non-Gemini model (like Claude) that uses rawPredict
+	if strings.Contains(meta.ActualModelName, "claude") {
+		suffix = "rawPredict"
+	} else {
+		// Gemini models use generateContent/streamGenerateContent
 		if meta.IsStream {
 			suffix = "streamGenerateContent?alt=sse"
 		} else {
 			suffix = "generateContent"
 		}
-
-		// Use global endpoint for models that require it
-		if IsRequireGlobalEndpoint(meta.ActualModelName) {
-			location = "global"
-			baseHost = "aiplatform.googleapis.com"
-		} else {
-			location = meta.Config.Region
-			baseHost = fmt.Sprintf("%s-aiplatform.googleapis.com", meta.Config.Region)
-		}
-	case slices.Contains(imagen.ModelList, meta.ActualModelName):
-		return fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/imagen-3.0-generate-001:predict",
-			meta.Config.Region, meta.Config.VertexAIProjectID, meta.Config.Region,
-		), nil
-	default:
-		if meta.IsStream {
-			suffix = "streamRawPredict?alt=sse"
-		} else {
-			suffix = "rawPredict"
-		}
-		location = meta.Config.Region
-		baseHost = fmt.Sprintf("%s-aiplatform.googleapis.com", meta.Config.Region)
 	}
 
+	location := "us-central1"
+	baseHost := "us-central1-aiplatform.googleapis.com"
+
+	// Check if model requires global endpoint
+	if IsRequireGlobalEndpoint(meta.ActualModelName) {
+		location = "global"
+		baseHost = "aiplatform.googleapis.com"
+	} else if meta.Config.Region != "" {
+		location = meta.Config.Region
+		baseHost = fmt.Sprintf("%s-aiplatform.googleapis.com", location)
+	}
+
+	// Handle custom base URL
 	if meta.BaseURL != "" {
-		return fmt.Sprintf(
-			"%s/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
-			meta.BaseURL,
-			meta.Config.VertexAIProjectID,
-			location,
-			meta.ActualModelName,
-			suffix,
-		), nil
+		baseHost = strings.TrimPrefix(meta.BaseURL, "https://")
+		baseHost = strings.TrimPrefix(baseHost, "http://")
+		baseHost = strings.TrimSuffix(baseHost, "/")
 	}
 
 	return fmt.Sprintf(
@@ -326,91 +334,4 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Request, meta *me
 
 func (a *Adaptor) DoRequest(c *gin.Context, meta *meta.Meta, requestBody io.Reader) (*http.Response, error) {
 	return channelhelper.DoRequestHelper(a, c, meta, requestBody)
-}
-
-// Pricing methods - VertexAI adapter manages its own model pricing
-// VertexAI uses the same Gemini models but with Google Cloud pricing
-func (a *Adaptor) GetDefaultModelPricing() map[string]adaptor.ModelConfig {
-	const MilliTokensUsd = 0.000001
-
-	// Direct map definition - much easier to maintain and edit
-	// Pricing from https://cloud.google.com/vertex-ai/generative-ai/pricing
-	// VertexAI shares models with Gemini but may have different pricing tiers
-	return map[string]adaptor.ModelConfig{
-		// Gemini Pro Models (VertexAI)
-		"gemini-pro":     {Ratio: 0.5 * MilliTokensUsd, CompletionRatio: 3},
-		"gemini-1.0-pro": {Ratio: 0.5 * MilliTokensUsd, CompletionRatio: 3},
-
-		// Gemma Models (VertexAI)
-		"gemma-2-2b-it":  {Ratio: 0.35 * MilliTokensUsd, CompletionRatio: 1.4},
-		"gemma-2-9b-it":  {Ratio: 0.35 * MilliTokensUsd, CompletionRatio: 1.4},
-		"gemma-2-27b-it": {Ratio: 0.35 * MilliTokensUsd, CompletionRatio: 1.4},
-		"gemma-3-27b-it": {Ratio: 0.35 * MilliTokensUsd, CompletionRatio: 1.4},
-
-		// Gemini 1.5 Flash Models (VertexAI)
-		"gemini-1.5-flash":    {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-1.5-flash-8b": {Ratio: 0.0375 * MilliTokensUsd, CompletionRatio: 4},
-
-		// Gemini 1.5 Pro Models (VertexAI)
-		"gemini-1.5-pro":              {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-1.5-pro-experimental": {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-
-		// Embedding Models (VertexAI)
-		"text-embedding-004": {Ratio: 0.00001 * MilliTokensUsd, CompletionRatio: 1},
-		"aqa":                {Ratio: 1, CompletionRatio: 1},
-
-		// Gemini 2.0 Flash Models (VertexAI)
-		"gemini-2.0-flash":                      {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.0-flash-exp":                  {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.0-flash-lite":                 {Ratio: 0.0375 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.0-flash-thinking-exp-01-21":   {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.0-flash-exp-image-generation": {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-
-		// Gemini 2.0 Pro Models (VertexAI)
-		"gemini-2.0-pro-exp-02-05": {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-
-		// Gemini 2.5 Flash Models (VertexAI)
-		"gemini-2.5-flash-lite-preview-06-17": {Ratio: 0.0375 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-flash":                    {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-flash-preview-04-17":      {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-flash-preview-05-20":      {Ratio: 0.075 * MilliTokensUsd, CompletionRatio: 4},
-
-		// Gemini 2.5 Pro Models (VertexAI)
-		"gemini-2.5-pro":               {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-pro-exp-03-25":     {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-pro-preview-05-06": {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-		"gemini-2.5-pro-preview-06-05": {Ratio: 1.25 * MilliTokensUsd, CompletionRatio: 4},
-
-		// VertexAI Claude Models (if supported)
-		"claude-3-5-sonnet-20241022": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},
-		"claude-3-5-sonnet-20240620": {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},
-		"claude-3-5-haiku-20241022":  {Ratio: 1 * MilliTokensUsd, CompletionRatio: 5},
-		"claude-3-opus-20240229":     {Ratio: 15 * MilliTokensUsd, CompletionRatio: 5},
-		"claude-3-sonnet-20240229":   {Ratio: 3 * MilliTokensUsd, CompletionRatio: 5},
-		"claude-3-haiku-20240307":    {Ratio: 0.25 * MilliTokensUsd, CompletionRatio: 5},
-
-		// VertexAI Imagen Models (image generation)
-		"imagen-3.0-generate-001": {Ratio: 0.04 * MilliTokensUsd, CompletionRatio: 1}, // Per image pricing
-
-		// VertexAI Veo Models (video generation)
-		"veo-001": {Ratio: 0.1 * MilliTokensUsd, CompletionRatio: 1}, // Per video pricing
-	}
-}
-
-func (a *Adaptor) GetModelRatio(modelName string) float64 {
-	pricing := a.GetDefaultModelPricing()
-	if price, exists := pricing[modelName]; exists {
-		return price.Ratio
-	}
-	// Default VertexAI pricing (similar to Gemini)
-	return 0.5 * 0.000001 // Default USD pricing
-}
-
-func (a *Adaptor) GetCompletionRatio(modelName string) float64 {
-	pricing := a.GetDefaultModelPricing()
-	if price, exists := pricing[modelName]; exists {
-		return price.CompletionRatio
-	}
-	// Default completion ratio for VertexAI
-	return 3.0
 }

@@ -3,7 +3,6 @@ package openai
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -174,8 +173,7 @@ func (a *Adaptor) applyRequestTransformations(meta *meta.Meta, request *model.Ge
 	}
 
 	if request.Stream && !config.EnforceIncludeUsage {
-		logger.Warn(context.Background(),
-			"please set ENFORCE_INCLUDE_USAGE=true to ensure accurate billing in stream mode")
+		logger.Logger.Warn("please set ENFORCE_INCLUDE_USAGE=true to ensure accurate billing in stream mode")
 	}
 
 	if config.EnforceIncludeUsage && request.Stream {
@@ -520,8 +518,7 @@ func (a *Adaptor) DoResponse(c *gin.Context,
 					usage.ToolsCost += structuredOutputCost
 
 					// Log structured output cost application for debugging
-					logger.Debugf(c.Request.Context(), "Applied structured output cost: %d (completion tokens: %d, model: %s)",
-						structuredOutputCost, usage.CompletionTokens, meta.ActualModelName)
+					logger.Logger.Debug(fmt.Sprintf("Applied structured output cost: %d (completion tokens: %d, model: %s)", structuredOutputCost, usage.CompletionTokens, meta.ActualModelName))
 				}
 			}
 		}
@@ -549,8 +546,7 @@ func (a *Adaptor) DoResponse(c *gin.Context,
 						usage.ToolsCost += structuredOutputCost
 
 						// Log structured output cost application for debugging
-						logger.Debugf(c.Request.Context(), "Applied structured output cost from original request: %d (completion tokens: %d, model: %s)",
-							structuredOutputCost, usage.CompletionTokens, meta.ActualModelName)
+						logger.Logger.Debug(fmt.Sprintf("Applied structured output cost from original request: %d (completion tokens: %d, model: %s)", structuredOutputCost, usage.CompletionTokens, meta.ActualModelName))
 					}
 				}
 			}

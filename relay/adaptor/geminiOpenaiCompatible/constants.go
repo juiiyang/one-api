@@ -34,26 +34,26 @@ var ModelRatios = map[string]adaptor.ModelConfig{
 	"aqa":                {Ratio: 1, CompletionRatio: 1},
 
 	// Gemini 2.0 Flash Models
-	"gemini-2.0-flash":                      {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.0-flash-exp":                  {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.0-flash-lite":                 {Ratio: 0.0375 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.0-flash-thinking-exp-01-21":   {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.0-flash-exp-image-generation": {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.0-flash":                      {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.0-flash-exp":                  {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.0-flash-lite":                 {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 0.3 / 0.075},
+	"gemini-2.0-flash-thinking-exp-01-21":   {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.0-flash-exp-image-generation": {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 4},
 
 	// Gemini 2.0 Pro Models
 	"gemini-2.0-pro-exp-02-05": {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 4},
 
 	// Gemini 2.5 Flash Models
-	"gemini-2.5-flash-lite-preview-06-17": {Ratio: 0.0375 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-flash":                    {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-flash-preview-04-17":      {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-flash-preview-05-20":      {Ratio: 0.075 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.5-flash-lite-preview-06-17": {Ratio: 0.1 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.5-flash":                    {Ratio: 0.3 * ratio.MilliTokensUsd, CompletionRatio: 2.5 / 0.3},
+	"gemini-2.5-flash-preview-04-17":      {Ratio: 0.3 * ratio.MilliTokensUsd, CompletionRatio: 2.5 / 0.3},
+	"gemini-2.5-flash-preview-05-20":      {Ratio: 0.3 * ratio.MilliTokensUsd, CompletionRatio: 2.5 / 0.3},
 
 	// Gemini 2.5 Pro Models
-	"gemini-2.5-pro":               {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-pro-exp-03-25":     {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-pro-preview-05-06": {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 4},
-	"gemini-2.5-pro-preview-06-05": {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 4},
+	"gemini-2.5-pro":               {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 8},
+	"gemini-2.5-pro-exp-03-25":     {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 8},
+	"gemini-2.5-pro-preview-05-06": {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 8},
+	"gemini-2.5-pro-preview-06-05": {Ratio: 1.25 * ratio.MilliTokensUsd, CompletionRatio: 8},
 }
 
 // ModelList derived from ModelRatios for backward compatibility

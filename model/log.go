@@ -3,7 +3,9 @@ package model
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/Laisky/zap"
 	"gorm.io/gorm"
 
 	"github.com/songquanpeng/one-api/common"
@@ -21,12 +23,12 @@ type Log struct {
 	Username          string `json:"username" gorm:"index:index_username_model_name,priority:2;default:''"`
 	TokenName         string `json:"token_name" gorm:"index;default:''"`
 	ModelName         string `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
-	Quota             int    `json:"quota" gorm:"default:0"`
-	PromptTokens      int    `json:"prompt_tokens" gorm:"default:0"`
-	CompletionTokens  int    `json:"completion_tokens" gorm:"default:0"`
+	Quota             int    `json:"quota" gorm:"default:0;index"`             // Added index for sorting
+	PromptTokens      int    `json:"prompt_tokens" gorm:"default:0;index"`     // Added index for sorting
+	CompletionTokens  int    `json:"completion_tokens" gorm:"default:0;index"` // Added index for sorting
 	ChannelId         int    `json:"channel" gorm:"index"`
 	RequestId         string `json:"request_id" gorm:"default:''"`
-	ElapsedTime       int64  `json:"elapsed_time" gorm:"default:0"` // unit is ms
+	ElapsedTime       int64  `json:"elapsed_time" gorm:"default:0;index"` // Added index for sorting (unit is ms)
 	IsStream          bool   `json:"is_stream" gorm:"default:false"`
 	SystemPromptReset bool   `json:"system_prompt_reset" gorm:"default:false"`
 }
@@ -40,15 +42,44 @@ const (
 	LogTypeTest
 )
 
+func GetLogOrderClause(sortBy string, sortOrder string) string {
+	// Validate sort order
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+
+	// Map frontend field names to database column names and validate
+	switch sortBy {
+	case "created_time":
+		return "created_at " + sortOrder
+	case "prompt_tokens":
+		return "prompt_tokens " + sortOrder
+	case "completion_tokens":
+		return "completion_tokens " + sortOrder
+	case "quota":
+		return "quota " + sortOrder
+	case "elapsed_time":
+		return "elapsed_time " + sortOrder
+	default:
+		return "id desc" // Default sorting
+	}
+}
+
 func recordLogHelper(ctx context.Context, log *Log) {
 	requestId := helper.GetRequestID(ctx)
 	log.RequestId = requestId
 	err := LOG_DB.Create(log).Error
 	if err != nil {
-		logger.Error(ctx, "failed to record log: "+err.Error())
+		logger.Logger.Error("failed to record log", zap.Error(err))
 		return
 	}
-	logger.Infof(ctx, "record log: %+v", log)
+	logger.Logger.Info("record log",
+		zap.Int("user_id", log.UserId),
+		zap.String("username", log.Username),
+		zap.Int64("created_at", log.CreatedAt),
+		zap.Int("type", log.Type),
+		zap.String("content", log.Content),
+		zap.String("request_id", log.RequestId))
 }
 
 func RecordLog(ctx context.Context, userId int, logType int, content string) {
@@ -93,7 +124,7 @@ func RecordTestLog(ctx context.Context, log *Log) {
 	recordLogHelper(ctx, log)
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int) (logs []*Log, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, sortBy string, sortOrder string) (logs []*Log, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -118,11 +149,20 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if channel != 0 {
 		tx = tx.Where("channel_id = ?", channel)
 	}
-	err = tx.Order("id desc").Limit(num).Offset(startIdx).Find(&logs).Error
+
+	// Apply sorting with timeout for sorting queries
+	orderClause := GetLogOrderClause(sortBy, sortOrder)
+	if sortBy != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = tx.WithContext(ctx).Order(orderClause).Limit(num).Offset(startIdx).Find(&logs).Error
+	} else {
+		err = tx.Order(orderClause).Limit(num).Offset(startIdx).Find(&logs).Error
+	}
 	return logs, err
 }
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int) (logs []*Log, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, sortBy string, sortOrder string) (logs []*Log, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB.Where("user_id = ?", userId)
@@ -141,7 +181,16 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if endTimestamp != 0 {
 		tx = tx.Where("created_at <= ?", endTimestamp)
 	}
-	err = tx.Order("id desc").Limit(num).Offset(startIdx).Omit("id").Find(&logs).Error
+
+	// Apply sorting with timeout for sorting queries
+	orderClause := GetLogOrderClause(sortBy, sortOrder)
+	if sortBy != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = tx.WithContext(ctx).Order(orderClause).Limit(num).Offset(startIdx).Find(&logs).Error
+	} else {
+		err = tx.Order(orderClause).Limit(num).Offset(startIdx).Omit("id").Find(&logs).Error
+	}
 	return logs, err
 }
 

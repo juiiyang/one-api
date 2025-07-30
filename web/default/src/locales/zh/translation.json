@@ -366,6 +366,7 @@
       "prompt_tokens": "提示词消耗",
       "completion_tokens": "补全消耗",
       "quota": "额度",
+      "latency": "Latency",
       "detail": "详情"
     },
     "buttons": {

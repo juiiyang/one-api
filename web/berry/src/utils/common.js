@@ -155,7 +155,7 @@ export function timestamp2string(timestamp) {
 
 export function calculateQuota(quota = 0, digits = 2) {
     let quotaPerUnit = localStorage.getItem('quota_per_unit');
-    quotaPerUnit = parseFloat(quotaPerUnit);
+    quotaPerUnit = parseFloat(quotaPerUnit || '500000');
 
     return (quota / quotaPerUnit).toFixed(digits);
 }

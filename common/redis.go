@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Laisky/zap"
 	"github.com/go-redis/redis/v8"
 
 	"github.com/songquanpeng/one-api/common/config"
@@ -19,25 +20,25 @@ var RedisEnabled = true
 func InitRedisClient() (err error) {
 	if os.Getenv("REDIS_CONN_STRING") == "" {
 		RedisEnabled = false
-		logger.SysLog("REDIS_CONN_STRING not set, Redis is not enabled")
+		logger.Logger.Info("REDIS_CONN_STRING not set, Redis is not enabled")
 		return nil
 	}
 	if config.SyncFrequency == 0 {
 		RedisEnabled = false
-		logger.SysLog("SYNC_FREQUENCY not set, Redis is disabled")
+		logger.Logger.Info("SYNC_FREQUENCY not set, Redis is disabled")
 		return nil
 	}
 	redisConnString := os.Getenv("REDIS_CONN_STRING")
 	if os.Getenv("REDIS_MASTER_NAME") == "" {
-		logger.SysLog("Redis is enabled")
+		logger.Logger.Info("Redis is enabled")
 		opt, err := redis.ParseURL(redisConnString)
 		if err != nil {
-			logger.FatalLog("failed to parse Redis connection string: " + err.Error())
+			logger.Logger.Fatal("failed to parse Redis connection string", zap.Error(err))
 		}
 		RDB = redis.NewClient(opt)
 	} else {
 		// cluster mode
-		logger.SysLog("Redis cluster mode enabled")
+		logger.Logger.Info("Redis cluster mode enabled")
 		RDB = redis.NewUniversalClient(&redis.UniversalOptions{
 			Addrs:      strings.Split(redisConnString, ","),
 			Password:   os.Getenv("REDIS_PASSWORD"),
@@ -49,7 +50,7 @@ func InitRedisClient() (err error) {
 
 	_, err = RDB.Ping(ctx).Result()
 	if err != nil {
-		logger.FatalLog("Redis ping test failed: " + err.Error())
+		logger.Logger.Fatal("Redis ping test failed", zap.Error(err))
 	}
 	return err
 }
@@ -57,7 +58,7 @@ func InitRedisClient() (err error) {
 func ParseRedisOption() *redis.Options {
 	opt, err := redis.ParseURL(os.Getenv("REDIS_CONN_STRING"))
 	if err != nil {
-		logger.FatalLog("failed to parse Redis connection string: " + err.Error())
+		logger.Logger.Fatal("failed to parse Redis connection string", zap.Error(err))
 	}
 	return opt
 }

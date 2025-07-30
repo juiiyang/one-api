@@ -98,6 +98,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [statisticsMetric, setStatisticsMetric] = useState('tokens'); // New state for statistics metric
   const isInitialized = useRef(false);
 
   // Move useEffect hooks after function definitions
@@ -117,6 +118,10 @@ const Dashboard = () => {
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchDashboardData(selectedUserId, fromDate, toDate);
+  };
+
+  const handleStatisticsMetricChange = (e, { value }) => {
+    setStatisticsMetric(value);
   };
 
   // Helper function to get all dates in a range
@@ -463,10 +468,24 @@ const Dashboard = () => {
       });
     }
 
-    // 填充实际数据
+    // 填充实际数据 - 根据选择的指标类型
     data.forEach((item) => {
-      timeData[item.Day][item.ModelName] =
-        item.PromptTokens + item.CompletionTokens;
+      let value;
+      switch (statisticsMetric) {
+        case 'requests':
+          value = item.RequestCount;
+          break;
+        case 'expenses':
+          // Convert quota to currency units for display
+          const quotaPerUnit = parseFloat(localStorage.getItem('quota_per_unit') || '500000');
+          value = item.Quota / quotaPerUnit;
+          break;
+        case 'tokens':
+        default:
+          value = item.PromptTokens + item.CompletionTokens;
+          break;
+      }
+      timeData[item.Day][item.ModelName] = value;
     });
 
     return Object.values(timeData).sort((a, b) => a.date.localeCompare(b.date));
@@ -617,7 +636,9 @@ const Dashboard = () => {
 
     // Budget projection
     const totalQuotaToday = summaryData.todayQuota;
-    const monthlyProjection = totalQuotaToday * 30;
+    const quotaPerUnit = parseFloat(localStorage.getItem('quota_per_unit') || '500000');
+    const dailySpendingInCurrency = totalQuotaToday / quotaPerUnit;
+    const monthlyProjection = dailySpendingInCurrency * 30;
 
     if (monthlyProjection > 100) {
       insights.push({
@@ -1136,7 +1157,7 @@ const Dashboard = () => {
                       }}
                       formatter={(value) => [
                         <span style={{ color: chartConfig.colors.quota, fontWeight: '600' }}>
-                          ${value.toFixed(6)}
+                          {renderQuota(value, t, 6)}
                         </span>,
                         t('dashboard.charts.quota.tooltip'),
                       ]}
@@ -1233,7 +1254,26 @@ const Dashboard = () => {
       {/* 模型使用统计 */}
       <Card fluid className='chart-card'>
         <Card.Content>
-          <Card.Header>{t('dashboard.statistics.title')}</Card.Header>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <Card.Header>
+              {t('dashboard.statistics.title')} - {
+                statisticsMetric === 'tokens' ? t('dashboard.statistics.metrics.tokens', 'Tokens') :
+                statisticsMetric === 'requests' ? t('dashboard.statistics.metrics.requests', 'Requests') :
+                t('dashboard.statistics.metrics.expenses', 'Expenses')
+              }
+            </Card.Header>
+            <Dropdown
+              selection
+              value={statisticsMetric}
+              onChange={handleStatisticsMetricChange}
+              options={[
+                { key: 'tokens', value: 'tokens', text: t('dashboard.statistics.metrics.tokens', 'Tokens') },
+                { key: 'requests', value: 'requests', text: t('dashboard.statistics.metrics.requests', 'Requests') },
+                { key: 'expenses', value: 'expenses', text: t('dashboard.statistics.metrics.expenses', 'Expenses') }
+              ]}
+              style={{ minWidth: '120px' }}
+            />
+          </div>
           <div className='chart-container'>
             <ResponsiveContainer width='100%' height={350}>
               <BarChart data={modelData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -1248,6 +1288,17 @@ const Dashboard = () => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
+                  tickFormatter={(value) => {
+                    switch (statisticsMetric) {
+                      case 'requests':
+                        return renderNumberForChart(value);
+                      case 'expenses':
+                        return `$${value.toFixed(2)}`;
+                      case 'tokens':
+                      default:
+                        return renderNumberForChart(value);
+                    }
+                  }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -1265,6 +1316,19 @@ const Dashboard = () => {
                       const filteredAndSortedPayload = payload
                         .filter(entry => entry.value > 0)
                         .sort((a, b) => b.value - a.value);
+
+                      // Format value based on selected metric
+                      const formatValue = (value) => {
+                        switch (statisticsMetric) {
+                          case 'requests':
+                            return renderNumberForChart(value);
+                          case 'expenses':
+                            return `$${value.toFixed(6)}`;
+                          case 'tokens':
+                          default:
+                            return renderNumberForChart(value);
+                        }
+                      };
 
                       return (
                         <div style={{
@@ -1289,7 +1353,7 @@ const Dashboard = () => {
                                 marginRight: '8px'
                               }}></span>
                               <span style={{ fontWeight: '600' }}>
-                                {entry.name}: {renderNumberForChart(entry.value)}
+                                {entry.name}: {formatValue(entry.value)}
                               </span>
                             </div>
                           ))}

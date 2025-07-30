@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -60,7 +61,7 @@ func GetByContext(c *gin.Context) *Meta {
 		currentChannelId := c.GetInt(ctxkey.ChannelId)
 		if existingMeta.ChannelId != currentChannelId && currentChannelId != 0 {
 			// Channel has changed, update the cached meta with new channel information
-			logger.Infof(c.Request.Context(), "Channel changed during retry: %d -> %d, updating meta", existingMeta.ChannelId, currentChannelId)
+			logger.Logger.Info(fmt.Sprintf("Channel changed during retry: %d -> %d, updating meta", existingMeta.ChannelId, currentChannelId))
 			existingMeta.ChannelType = c.GetInt(ctxkey.Channel)
 			existingMeta.ChannelId = currentChannelId
 			existingMeta.BaseURL = c.GetString(ctxkey.BaseURL)

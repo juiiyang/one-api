@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/model"
 )
@@ -42,12 +44,12 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 		Errors:    make([]error, 0),
 	}
 
-	logger.SysLog("Starting database migration process")
-	logger.SysLog(fmt.Sprintf("Source: %s (%s)", m.SourceType, m.SourceDSN))
-	logger.SysLog(fmt.Sprintf("Target: %s (%s)", m.TargetType, m.TargetDSN))
+	logger.Logger.Info("Starting database migration process")
+	logger.Logger.Info(fmt.Sprintf("Source: %s (%s)", m.SourceType, m.SourceDSN))
+	logger.Logger.Info(fmt.Sprintf("Target: %s (%s)", m.TargetType, m.TargetDSN))
 
 	if m.DryRun {
-		logger.SysLog("Running in DRY RUN mode - no changes will be made")
+		logger.Logger.Info("Running in DRY RUN mode - no changes will be made")
 	}
 
 	// Step 1: Connect to databases
@@ -121,19 +123,19 @@ func (m *Migrator) connectDatabases() error {
 func (m *Migrator) closeDatabases() {
 	if m.sourceConn != nil {
 		if err := m.sourceConn.Close(); err != nil {
-			logger.SysError(fmt.Sprintf("Failed to close source database: %v", err))
+			logger.Logger.Error(fmt.Sprintf("Failed to close source database: %v", err))
 		}
 	}
 	if m.targetConn != nil {
 		if err := m.targetConn.Close(); err != nil {
-			logger.SysError(fmt.Sprintf("Failed to close target database: %v", err))
+			logger.Logger.Error(fmt.Sprintf("Failed to close target database: %v", err))
 		}
 	}
 }
 
 // validateMigration performs pre-migration validation
 func (m *Migrator) validateMigration() error {
-	logger.SysLog("Validating database connections...")
+	logger.Logger.Info("Validating database connections...")
 
 	// Validate source connection
 	if err := m.sourceConn.ValidateConnection(); err != nil {
@@ -150,13 +152,13 @@ func (m *Migrator) validateMigration() error {
 		return fmt.Errorf("source and target databases cannot be the same")
 	}
 
-	logger.SysLog("Database connections validated successfully")
+	logger.Logger.Info("Database connections validated successfully")
 	return nil
 }
 
 // analyzeSource analyzes the source database structure and data
 func (m *Migrator) analyzeSource(stats *MigrationStats) error {
-	logger.SysLog("Analyzing source database...")
+	logger.Logger.Info("Analyzing source database...")
 
 	// Get all tables
 	tables, err := m.sourceConn.GetTableNames()
@@ -165,44 +167,44 @@ func (m *Migrator) analyzeSource(stats *MigrationStats) error {
 	}
 
 	stats.TablesTotal = len(tables)
-	logger.SysLog(fmt.Sprintf("Found %d tables in source database", len(tables)))
+	logger.Logger.Info(fmt.Sprintf("Found %d tables in source database", len(tables)))
 
 	// Count total records
 	var totalRecords int64
 	for _, table := range tables {
 		count, err := m.sourceConn.GetRowCount(table)
 		if err != nil {
-			logger.SysWarn(fmt.Sprintf("Failed to count rows in table %s: %v", table, err))
+			logger.Logger.Warn(fmt.Sprintf("Failed to count rows in table %s: %v", table, err))
 			continue
 		}
 		totalRecords += count
 		if m.Verbose {
-			logger.SysLog(fmt.Sprintf("Table %s: %d records", table, count))
+			logger.Logger.Info(fmt.Sprintf("Table %s: %d records", table, count))
 		}
 	}
 
 	stats.RecordsTotal = totalRecords
-	logger.SysLog(fmt.Sprintf("Total records to migrate: %d", totalRecords))
+	logger.Logger.Info(fmt.Sprintf("Total records to migrate: %d", totalRecords))
 
 	return nil
 }
 
 // prepareTarget prepares the target database for migration
 func (m *Migrator) prepareTarget() error {
-	logger.SysLog("Preparing target database...")
+	logger.Logger.Info("Preparing target database...")
 
 	// Run GORM auto-migration to create tables
 	if err := m.runAutoMigration(); err != nil {
 		return fmt.Errorf("failed to run auto-migration: %w", err)
 	}
 
-	logger.SysLog("Target database prepared successfully")
+	logger.Logger.Info("Target database prepared successfully")
 	return nil
 }
 
 // runAutoMigration runs GORM's AutoMigrate on the target database
 func (m *Migrator) runAutoMigration() error {
-	logger.SysLog("Running GORM auto-migration on target database...")
+	logger.Logger.Info("Running GORM auto-migration on target database...")
 
 	// Set the global DB to target connection for migration
 	originalDB := model.DB
@@ -237,7 +239,7 @@ func (m *Migrator) runAutoMigration() error {
 		return fmt.Errorf("failed to migrate UserRequestCost: %w", err)
 	}
 
-	logger.SysLog("GORM auto-migration completed successfully")
+	logger.Logger.Info("GORM auto-migration completed successfully")
 	return nil
 }
 
@@ -245,24 +247,29 @@ func (m *Migrator) runAutoMigration() error {
 func (m *Migrator) printStats(stats *MigrationStats) {
 	duration := stats.EndTime.Sub(stats.StartTime)
 
-	logger.SysLog("=== Migration Statistics ===")
-	logger.SysLog(fmt.Sprintf("Duration: %v", duration))
-	logger.SysLog(fmt.Sprintf("Tables processed: %d/%d", stats.TablesDone, stats.TablesTotal))
-	logger.SysLog(fmt.Sprintf("Records processed: %d/%d", stats.RecordsDone, stats.RecordsTotal))
+	logger.Logger.Info("=== Migration Statistics ===")
+	logger.Logger.Info("Migration completed",
+		zap.Duration("duration", duration),
+		zap.Int("tables_done", stats.TablesDone),
+		zap.Int("tables_total", stats.TablesTotal),
+		zap.Int64("records_done", stats.RecordsDone),
+		zap.Int64("records_total", stats.RecordsTotal))
 
 	if len(stats.Errors) > 0 {
-		logger.SysLog(fmt.Sprintf("Errors encountered: %d", len(stats.Errors)))
+		logger.Logger.Warn("Migration completed with errors", zap.Int("error_count", len(stats.Errors)))
 		for i, err := range stats.Errors {
-			logger.SysError(fmt.Sprintf("Error %d: %v", i+1, err))
+			logger.Logger.Error("Migration error",
+				zap.Int("error_index", i+1),
+				zap.Error(err))
 		}
 	} else {
-		logger.SysLog("No errors encountered")
+		logger.Logger.Info("Migration completed successfully with no errors")
 	}
 }
 
 // ValidateOnly performs validation without migration
 func (m *Migrator) ValidateOnly(ctx context.Context) error {
-	logger.SysLog("Running validation-only mode")
+	logger.Logger.Info("Running validation-only mode")
 
 	// Connect to databases
 	if err := m.connectDatabases(); err != nil {
@@ -285,7 +292,7 @@ func (m *Migrator) ValidateOnly(ctx context.Context) error {
 		return fmt.Errorf("source analysis failed: %w", err)
 	}
 
-	logger.SysLog("Validation completed successfully")
+	logger.Logger.Info("Validation completed successfully")
 	return nil
 }
 
@@ -350,7 +357,7 @@ type TablePlan struct {
 // This is necessary after migrating data from other databases to ensure new records
 // get correct auto-increment IDs
 func (m *Migrator) fixPostgreSQLSequences() error {
-	logger.SysLog("Fixing PostgreSQL sequences after data migration...")
+	logger.Logger.Info("Fixing PostgreSQL sequences after data migration...")
 
 	// Define tables that have auto-increment ID columns
 	tablesWithSequences := []string{
@@ -366,14 +373,14 @@ func (m *Migrator) fixPostgreSQLSequences() error {
 
 	for _, tableName := range tablesWithSequences {
 		if err := m.fixTableSequence(tableName); err != nil {
-			logger.SysWarn(fmt.Sprintf("Failed to fix sequence for table %s: %v", tableName, err))
+			logger.Logger.Warn(fmt.Sprintf("Failed to fix sequence for table %s: %v", tableName, err))
 			// Continue with other tables instead of failing completely
 			continue
 		}
-		logger.SysLog(fmt.Sprintf("Fixed sequence for table: %s", tableName))
+		logger.Logger.Info(fmt.Sprintf("Fixed sequence for table: %s", tableName))
 	}
 
-	logger.SysLog("PostgreSQL sequence fixing completed")
+	logger.Logger.Info("PostgreSQL sequence fixing completed")
 	return nil
 }
 
@@ -386,7 +393,7 @@ func (m *Migrator) fixTableSequence(tableName string) error {
 	}
 
 	if count == 0 {
-		logger.SysLog(fmt.Sprintf("Table %s is empty, skipping sequence fix", tableName))
+		logger.Logger.Info(fmt.Sprintf("Table %s is empty, skipping sequence fix", tableName))
 		return nil
 	}
 
@@ -397,7 +404,7 @@ func (m *Migrator) fixTableSequence(tableName string) error {
 	}
 
 	if maxID == 0 {
-		logger.SysLog(fmt.Sprintf("Table %s has no valid IDs, skipping sequence fix", tableName))
+		logger.Logger.Info(fmt.Sprintf("Table %s has no valid IDs, skipping sequence fix", tableName))
 		return nil
 	}
 
@@ -409,6 +416,6 @@ func (m *Migrator) fixTableSequence(tableName string) error {
 		return fmt.Errorf("failed to update sequence %s: %w", sequenceName, err)
 	}
 
-	logger.SysLog(fmt.Sprintf("Updated sequence %s to start from %d", sequenceName, maxID+1))
+	logger.Logger.Info(fmt.Sprintf("Updated sequence %s to start from %d", sequenceName, maxID+1))
 	return nil
 }

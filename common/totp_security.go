@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/common/logger"
 )
 
@@ -52,7 +54,7 @@ func isRedisKeyExists(key string) bool {
 	ctx := context.Background()
 	exists, err := RDB.Exists(ctx, key).Result()
 	if err != nil {
-		logger.SysError("Redis exists check failed: " + err.Error())
+		logger.Logger.Error("Redis exists check failed", zap.Error(err))
 		return false
 	}
 	return exists > 0

@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	QuotaPerUsd     = 500000 // $1 = 500,000 quota
-	MilliTokensUsd  = 0.5    // 0.000001 * 500000 = 0.5 quota per milli-token
-	ImageUsdPerPic  = 1000   // 0.002 * 500000 = 1000 quota per image
-	MilliTokensRmb  = 3.5    // 0.000007 * 500000 = 3.5 quota per milli-token
-	ImageRmbPerPic  = 7000   // 0.014 * 500000 = 7000 quota per image
-	MilliTokensYuan = 3.5    // 0.000007 * 500000 = 3.5 quota per milli-token
-	ImageYuanPerPic = 7000   // 0.014 * 500000 = 7000 quota per image
-	TokensPerSec    = 10     // Video tokens per second for video generation models
+	QuotaPerUsd      = 500000 // $1 = 500,000 quota
+	MilliTokensUsd   = 0.5    // 0.000001 * 500000 = 0.5 quota per milli-token
+	ImageUsdPerPic   = 1000   // 0.002 * 500000 = 1000 quota per image
+	MilliTokensRmb   = 3.5    // 0.000007 * 500000 = 3.5 quota per milli-token
+	ImageRmbPerPic   = 7000   // 0.014 * 500000 = 7000 quota per image
+	MilliTokensYuan  = 3.5    // 0.000007 * 500000 = 3.5 quota per milli-token
+	ImageYuanPerPic  = 7000   // 0.014 * 500000 = 7000 quota per image
+	VideoUsdPerVideo = 50000  // 0.1 * 500000 = 50000 quota per video (typical $0.1 per video)
+	TokensPerSec     = 10     // Video tokens per second for video generation models
 )
 
 // Note: ModelPrice has been moved to relay/adaptor/interface.go
@@ -166,7 +167,7 @@ func GetModelRatioWithChannel(actualModelName string, channelType int, channelMo
 	}
 
 	// Final fallback: reasonable default
-	logger.SysWarn(fmt.Sprintf("Legacy pricing fallback for model %s (channel type: %d), consider migrating to three-layer pricing", actualModelName, channelType))
+	logger.Logger.Warn(fmt.Sprintf("Legacy pricing fallback for model %s (channel type: %d), consider migrating to three-layer pricing", actualModelName, channelType))
 	return 2.5 * MilliTokensUsd
 }
 
@@ -227,7 +228,7 @@ func GetCompletionRatioWithChannel(name string, channelType int, channelCompleti
 	}
 
 	// Final fallback: reasonable default
-	logger.SysWarn(fmt.Sprintf("completion ratio not found for model: %s (channel type: %d), using default value 1, consider migrating to three-layer pricing", name, channelType))
+	logger.Logger.Warn(fmt.Sprintf("completion ratio not found for model: %s (channel type: %d), using default value 1, consider migrating to three-layer pricing", name, channelType))
 	return 1
 }
 
@@ -243,7 +244,7 @@ func ModelRatio2JSONString() string {
 // UpdateModelRatioByJSONString is a no-op since global ModelRatio has been removed
 func UpdateModelRatioByJSONString(jsonStr string) error {
 	// No-op since global ModelRatio has been removed
-	logger.SysWarn("UpdateModelRatioByJSONString called but global ModelRatio has been removed. Use adapter-specific pricing instead.")
+	logger.Logger.Warn("UpdateModelRatioByJSONString called but global ModelRatio has been removed. Use adapter-specific pricing instead.")
 	return nil
 }
 
@@ -256,7 +257,7 @@ func CompletionRatio2JSONString() string {
 // UpdateCompletionRatioByJSONString is a no-op since global CompletionRatio has been removed
 func UpdateCompletionRatioByJSONString(jsonStr string) error {
 	// No-op since global CompletionRatio has been removed
-	logger.SysWarn("UpdateCompletionRatioByJSONString called but global CompletionRatio has been removed. Use adapter-specific pricing instead.")
+	logger.Logger.Warn("UpdateCompletionRatioByJSONString called but global CompletionRatio has been removed. Use adapter-specific pricing instead.")
 	return nil
 }
 

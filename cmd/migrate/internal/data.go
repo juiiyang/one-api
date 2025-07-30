@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/common/logger"
 	"github.com/songquanpeng/one-api/model"
 )
@@ -47,7 +49,7 @@ type TableInfo struct {
 
 // migrateData performs the actual data migration
 func (m *Migrator) migrateData(ctx context.Context, stats *MigrationStats) error {
-	logger.SysLog("Starting data migration...")
+	logger.Logger.Info("Starting data migration...")
 
 	for _, tableInfo := range TableMigrationOrder {
 		select {
@@ -58,15 +60,15 @@ func (m *Migrator) migrateData(ctx context.Context, stats *MigrationStats) error
 
 		if err := m.migrateTable(ctx, tableInfo, stats); err != nil {
 			stats.Errors = append(stats.Errors, fmt.Errorf("failed to migrate table %s: %w", tableInfo.Name, err))
-			logger.SysError(fmt.Sprintf("Failed to migrate table %s: %v", tableInfo.Name, err))
+			logger.Logger.Error(fmt.Sprintf("Failed to migrate table %s: %v", tableInfo.Name, err))
 			continue
 		}
 
 		stats.TablesDone++
-		logger.SysLog(fmt.Sprintf("Successfully migrated table %s (%d/%d)", tableInfo.Name, stats.TablesDone, stats.TablesTotal))
+		logger.Logger.Info(fmt.Sprintf("Successfully migrated table %s (%d/%d)", tableInfo.Name, stats.TablesDone, stats.TablesTotal))
 	}
 
-	logger.SysLog("Data migration completed")
+	logger.Logger.Info("Data migration completed")
 	return nil
 }
 
@@ -78,7 +80,7 @@ func (m *Migrator) migrateTable(ctx context.Context, tableInfo TableInfo, stats 
 		return fmt.Errorf("failed to check if table exists: %w", err)
 	}
 	if !exists {
-		logger.SysWarn(fmt.Sprintf("Table %s does not exist in source database, skipping", tableInfo.Name))
+		logger.Logger.Warn(fmt.Sprintf("Table %s does not exist in source database, skipping", tableInfo.Name))
 		return nil
 	}
 
@@ -89,11 +91,11 @@ func (m *Migrator) migrateTable(ctx context.Context, tableInfo TableInfo, stats 
 	}
 
 	if totalCount == 0 {
-		logger.SysLog(fmt.Sprintf("Table %s is empty, skipping", tableInfo.Name))
+		logger.Logger.Info(fmt.Sprintf("Table %s is empty, skipping", tableInfo.Name))
 		return nil
 	}
 
-	logger.SysLog(fmt.Sprintf("Migrating table %s (%d records) with %d workers, batch size %d",
+	logger.Logger.Info(fmt.Sprintf("Migrating table %s (%d records) with %d workers, batch size %d",
 		tableInfo.Name, totalCount, m.Workers, m.BatchSize))
 
 	// Use concurrent processing for better performance
@@ -134,7 +136,7 @@ func (m *Migrator) migrateTableSequential(ctx context.Context, tableInfo TableIn
 
 		if m.Verbose && (migratedCount-lastProgressReport >= progressThreshold || migratedCount == totalCount) {
 			progress := float64(migratedCount) / float64(totalCount) * 100
-			logger.SysLog(fmt.Sprintf("Table %s: %d/%d records (%.1f%%)", tableInfo.Name, migratedCount, totalCount, progress))
+			logger.Logger.Info(fmt.Sprintf("Table %s: %d/%d records (%.1f%%)", tableInfo.Name, migratedCount, totalCount, progress))
 			lastProgressReport = migratedCount
 		}
 
@@ -144,7 +146,7 @@ func (m *Migrator) migrateTableSequential(ctx context.Context, tableInfo TableIn
 		}
 	}
 
-	logger.SysLog(fmt.Sprintf("Table %s migration completed: %d records", tableInfo.Name, migratedCount))
+	logger.Logger.Info(fmt.Sprintf("Table %s migration completed: %d records", tableInfo.Name, migratedCount))
 	return nil
 }
 
@@ -170,7 +172,7 @@ func (m *Migrator) migrateTableConcurrent(ctx context.Context, tableInfo TableIn
 		defer collectorWg.Done()
 		for result := range results {
 			if result.Error != nil {
-				logger.SysError(fmt.Sprintf("Batch job %d failed: %v", result.JobID, result.Error))
+				logger.Logger.Error(fmt.Sprintf("Batch job %d failed: %v", result.JobID, result.Error))
 				continue
 			}
 
@@ -186,7 +188,7 @@ func (m *Migrator) migrateTableConcurrent(ctx context.Context, tableInfo TableIn
 
 			if m.Verbose && (currentCount-lastProgressReport >= progressThreshold || currentCount >= totalCount) {
 				progress := float64(currentCount) / float64(totalCount) * 100
-				logger.SysLog(fmt.Sprintf("Table %s: %d/%d records (%.1f%%)", tableInfo.Name, currentCount, totalCount, progress))
+				logger.Logger.Info(fmt.Sprintf("Table %s: %d/%d records (%.1f%%)", tableInfo.Name, currentCount, totalCount, progress))
 				lastProgressReport = currentCount
 			}
 		}
@@ -219,7 +221,7 @@ func (m *Migrator) migrateTableConcurrent(ctx context.Context, tableInfo TableIn
 	collectorWg.Wait()
 
 	finalCount := atomic.LoadInt64(&migratedCount)
-	logger.SysLog(fmt.Sprintf("Table %s migration completed: %d records", tableInfo.Name, finalCount))
+	logger.Logger.Info(fmt.Sprintf("Table %s migration completed: %d records", tableInfo.Name, finalCount))
 	return nil
 }
 
@@ -288,7 +290,7 @@ func (m *Migrator) insertBatchWithConflictResolution(batch interface{}, tableInf
 	// If we get a conflict error, use upsert approach
 	if m.isConflictError(err) {
 		if m.Verbose {
-			logger.SysLog(fmt.Sprintf("Conflict detected in table %s, switching to upsert mode", tableInfo.Name))
+			logger.Logger.Info(fmt.Sprintf("Conflict detected in table %s, switching to upsert mode", tableInfo.Name))
 		}
 		return m.upsertBatch(batch, tableInfo)
 	}
@@ -343,7 +345,7 @@ func (m *Migrator) upsertBatch(batch interface{}, tableInfo TableInfo) error {
 		if result.Error != nil {
 			errorCount++
 			if m.Verbose {
-				logger.SysWarn(fmt.Sprintf("Failed to upsert record %d in table %s: %v", i+1, tableInfo.Name, result.Error))
+				logger.Logger.Warn(fmt.Sprintf("Failed to upsert record %d in table %s: %v", i+1, tableInfo.Name, result.Error))
 			}
 			// Continue with other records instead of failing the entire batch
 		} else {
@@ -352,8 +354,10 @@ func (m *Migrator) upsertBatch(batch interface{}, tableInfo TableInfo) error {
 	}
 
 	if m.Verbose && errorCount > 0 {
-		logger.SysWarn(fmt.Sprintf("Table %s upsert completed: %d successful, %d failed",
-			tableInfo.Name, successCount, errorCount))
+		logger.Logger.Warn("Table upsert completed with errors",
+			zap.String("table", tableInfo.Name),
+			zap.Int("successful", successCount),
+			zap.Int("failed", errorCount))
 	}
 
 	return nil
@@ -378,7 +382,7 @@ func containsSubstring(s, substr string) bool {
 
 // validateResults validates the migration results by comparing record counts
 func (m *Migrator) validateResults(stats *MigrationStats) error {
-	logger.SysLog("Validating migration results...")
+	logger.Logger.Info("Validating migration results...")
 
 	var validationErrors []error
 
@@ -413,26 +417,26 @@ func (m *Migrator) validateResults(stats *MigrationStats) error {
 			validationErrors = append(validationErrors, fmt.Errorf("record count mismatch for table %s: source=%d, target=%d", tableInfo.Name, sourceCount, targetCount))
 		} else {
 			if m.Verbose {
-				logger.SysLog(fmt.Sprintf("Table %s validation passed: %d records", tableInfo.Name, sourceCount))
+				logger.Logger.Info(fmt.Sprintf("Table %s validation passed: %d records", tableInfo.Name, sourceCount))
 			}
 		}
 	}
 
 	if len(validationErrors) > 0 {
-		logger.SysError("Migration validation failed:")
+		logger.Logger.Error("Migration validation failed:")
 		for _, err := range validationErrors {
-			logger.SysError(fmt.Sprintf("  - %v", err))
+			logger.Logger.Error(fmt.Sprintf("  - %v", err))
 		}
 		return fmt.Errorf("migration validation failed with %d errors", len(validationErrors))
 	}
 
-	logger.SysLog("Migration validation completed successfully")
+	logger.Logger.Info("Migration validation completed successfully")
 	return nil
 }
 
 // ExportData exports data from source database to a structured format
 func (m *Migrator) ExportData(ctx context.Context) (map[string]interface{}, error) {
-	logger.SysLog("Exporting data from source database...")
+	logger.Logger.Info("Exporting data from source database...")
 
 	exportData := make(map[string]interface{})
 
@@ -450,7 +454,7 @@ func (m *Migrator) ExportData(ctx context.Context) (map[string]interface{}, erro
 		}
 
 		if !exists {
-			logger.SysWarn(fmt.Sprintf("Table %s does not exist in source database, skipping", tableInfo.Name))
+			logger.Logger.Warn(fmt.Sprintf("Table %s does not exist in source database, skipping", tableInfo.Name))
 			continue
 		}
 
@@ -461,10 +465,10 @@ func (m *Migrator) ExportData(ctx context.Context) (map[string]interface{}, erro
 		}
 
 		exportData[tableInfo.Name] = tableData
-		logger.SysLog(fmt.Sprintf("Exported table %s", tableInfo.Name))
+		logger.Logger.Info(fmt.Sprintf("Exported table %s", tableInfo.Name))
 	}
 
-	logger.SysLog("Data export completed")
+	logger.Logger.Info("Data export completed")
 	return exportData, nil
 }
 

@@ -134,7 +134,7 @@ package tencent
 // 			var TencentResponse ChatResponse
 // 			err := json.Unmarshal([]byte(data), &TencentResponse)
 // 			if err != nil {
-// 				logger.SysError("error unmarshalling stream response: " + err.Error())
+// 				logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 // 				return true
 // 			}
 // 			response := streamResponseTencent2OpenAI(&TencentResponse)
@@ -143,7 +143,7 @@ package tencent
 // 			}
 // 			jsonResponse, err := json.Marshal(response)
 // 			if err != nil {
-// 				logger.SysError("error marshalling stream response: " + err.Error())
+// 				logger.Logger.Error("error marshalling stream response: " + err.Error())
 // 				return true
 // 			}
 // 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})

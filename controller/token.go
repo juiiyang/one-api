@@ -118,13 +118,13 @@ func GetTokenStatus(c *gin.Context) {
 
 func validateToken(_ *gin.Context, token *model.Token) error {
 	if len(token.Name) > 30 {
-		return fmt.Errorf("Token name is too long")
+		return errors.Errorf("Token name is too long")
 	}
 
 	if token.Subnet != nil && *token.Subnet != "" {
 		err := network.IsValidSubnets(*token.Subnet)
 		if err != nil {
-			return fmt.Errorf("invalid network segment: %s", err.Error())
+			return errors.Wrap(err, "invalid network segment")
 		}
 	}
 
@@ -271,17 +271,17 @@ func ConsumeToken(c *gin.Context) {
 func validateTokenForConsumption(token *model.Token) error {
 	// Check if token is enabled
 	if token.Status != model.TokenStatusEnabled {
-		return fmt.Errorf("API Key is not enabled")
+		return errors.Errorf("API Key is not enabled")
 	}
 
 	// Check if token is expired
 	if token.ExpiredTime != -1 && token.ExpiredTime <= helper.GetTimestamp() {
-		return fmt.Errorf("The token has expired and cannot be used. Please modify the expiration time of the token, or set it to never expire")
+		return errors.Errorf("The token has expired and cannot be used. Please modify the expiration time of the token, or set it to never expire")
 	}
 
 	// Check if token is exhausted
 	if !token.UnlimitedQuota && token.RemainQuota <= 0 {
-		return fmt.Errorf("The available quota of the token has been used up. Please add more quota or set it to unlimited")
+		return errors.Errorf("The available quota of the token has been used up. Please add more quota or set it to unlimited")
 	}
 
 	return nil

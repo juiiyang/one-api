@@ -9,6 +9,7 @@ import (
 
 	"github.com/Laisky/errors/v2"
 	gmw "github.com/Laisky/gin-middlewares/v6"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
@@ -184,7 +185,7 @@ func checkRedisRateLimit(c *gin.Context, key string, maxRequestNum int, duration
 	listLength, err := rdb.LLen(ctx, key).Result()
 	if err != nil {
 		// If Redis fails, allow the request but log the error
-		logger.SysError("Redis rate limit check failed: " + err.Error())
+		logger.Logger.Error("Redis rate limit check failed", zap.Error(err))
 		return true
 	}
 
@@ -195,13 +196,13 @@ func checkRedisRateLimit(c *gin.Context, key string, maxRequestNum int, duration
 	} else {
 		oldTimeStr, err := rdb.LIndex(ctx, key, -1).Result()
 		if err != nil {
-			logger.SysError("Redis rate limit get old time failed: " + err.Error())
+			logger.Logger.Error("Redis rate limit get old time failed", zap.Error(err))
 			return true
 		}
 
 		oldTime, err := time.Parse(timeFormat, oldTimeStr)
 		if err != nil {
-			logger.SysError("Redis rate limit parse old time failed: " + err.Error())
+			logger.Logger.Error("Redis rate limit parse old time failed", zap.Error(err))
 			return true
 		}
 

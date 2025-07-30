@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/image/webp"
 	"golang.org/x/sync/errgroup"
@@ -150,7 +151,7 @@ func ImageHandler(c *gin.Context, resp *http.Response) (
 					return errors.WithStack(err)
 				}
 
-				logger.Error(c, fmt.Sprintf("some images failed to download: %+v", err))
+				logger.Logger.Error("some images failed to download", zap.Error(err))
 			}
 
 			c.JSON(http.StatusOK, respBody)

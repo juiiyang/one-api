@@ -51,7 +51,7 @@ func getGitHubUserInfoByCode(code string) (*GitHubUser, error) {
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to GitHub server, please try again later!")
 	}
 	defer res.Body.Close()
@@ -67,7 +67,7 @@ func getGitHubUserInfoByCode(code string) (*GitHubUser, error) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", oAuthResponse.AccessToken))
 	res2, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to GitHub server, please try again later!")
 	}
 	defer res2.Body.Close()

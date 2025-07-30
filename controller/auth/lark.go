@@ -55,7 +55,7 @@ func getLarkUserInfoByCode(code string) (*LarkUser, error) {
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to Lark server, please try again later!")
 	}
 	defer res.Body.Close()
@@ -71,7 +71,7 @@ func getLarkUserInfoByCode(code string) (*LarkUser, error) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", oAuthResponse.AccessToken))
 	res2, err := client.Do(req)
 	if err != nil {
-		logger.SysLog(err.Error())
+		logger.Logger.Info(err.Error())
 		return nil, errors.New("Unable to connect to Lark server, please try again later!")
 	}
 	var larkUser LarkUser

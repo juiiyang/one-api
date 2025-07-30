@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 
 	"github.com/songquanpeng/one-api/common"
 	"github.com/songquanpeng/one-api/common/config"
@@ -49,7 +50,7 @@ func CacheGetTokenByKey(key string) (*Token, error) {
 		}
 		err = common.RedisSet(fmt.Sprintf("token:%s", key), string(jsonBytes), time.Duration(TokenCacheSeconds)*time.Second)
 		if err != nil {
-			logger.SysError("Redis set token error: " + err.Error())
+			logger.Logger.Error("Redis set token error: " + err.Error())
 		}
 		return &token, nil
 	}
@@ -70,7 +71,7 @@ func CacheGetUserGroup(id int) (group string, err error) {
 		}
 		err = common.RedisSet(fmt.Sprintf("user_group:%d", id), group, time.Duration(UserId2GroupCacheSeconds)*time.Second)
 		if err != nil {
-			logger.SysError("Redis set user group error: " + err.Error())
+			logger.Logger.Error("Redis set user group error: " + err.Error())
 		}
 	}
 	return group, err
@@ -83,7 +84,7 @@ func fetchAndUpdateUserQuota(ctx context.Context, id int) (quota int64, err erro
 	}
 	err = common.RedisSet(fmt.Sprintf("user_quota:%d", id), fmt.Sprintf("%d", quota), time.Duration(UserId2QuotaCacheSeconds)*time.Second)
 	if err != nil {
-		logger.Error(ctx, "Redis set user quota error: "+err.Error())
+		logger.Logger.Error("Redis set user quota error", zap.Error(err))
 	}
 	return
 }
@@ -101,7 +102,7 @@ func CacheGetUserQuota(ctx context.Context, id int) (quota int64, err error) {
 		return 0, nil
 	}
 	if quota <= config.PreConsumedQuota { // when user's quota is less than pre-consumed quota, we need to fetch from db
-		logger.Infof(ctx, "user %d's cached quota is too low: %d, refreshing from db", quota, id)
+		logger.Logger.Info(fmt.Sprintf("user %d's cached quota is too low: %d, refreshing from db", quota, id))
 		return fetchAndUpdateUserQuota(ctx, id)
 	}
 	return quota, nil
@@ -146,7 +147,7 @@ func CacheIsUserEnabled(userId int) (bool, error) {
 	}
 	err = common.RedisSet(fmt.Sprintf("user_enabled:%d", userId), enabled, time.Duration(UserId2StatusCacheSeconds)*time.Second)
 	if err != nil {
-		logger.SysError("Redis set user enabled error: " + err.Error())
+		logger.Logger.Error("Redis set user enabled error: " + err.Error())
 	}
 	return userEnabled, err
 }
@@ -168,7 +169,7 @@ func CacheGetGroupModels(ctx context.Context, group string) (models []string, er
 	}
 	err = common.RedisSet(fmt.Sprintf("group_models:%s", group), strings.Join(models, ","), time.Duration(GroupModelsCacheSeconds)*time.Second)
 	if err != nil {
-		logger.SysError("Redis set group models error: " + err.Error())
+		logger.Logger.Error("Redis set group models error: " + err.Error())
 	}
 	return models, nil
 }
@@ -180,10 +181,10 @@ func CacheGetGroupModelsV2(ctx context.Context, group string) (models []EnabledA
 	}
 	modelsStr, err := common.RedisGet(fmt.Sprintf("group_models_v2:%s", group))
 	if err != nil {
-		logger.Warnf(ctx, "Redis get group models error: %+v", err)
+		logger.Logger.Warn(fmt.Sprintf("Redis get group models error: %+v", err))
 	} else {
 		if err = json.Unmarshal([]byte(modelsStr), &models); err != nil {
-			logger.Warnf(ctx, "Redis get group models error: %+v", err)
+			logger.Logger.Warn(fmt.Sprintf("Redis get group models error: %+v", err))
 		} else {
 			return models, nil
 		}
@@ -196,14 +197,14 @@ func CacheGetGroupModelsV2(ctx context.Context, group string) (models []EnabledA
 
 	cachePayload, err := json.Marshal(models)
 	if err != nil {
-		logger.SysError("Redis set group models error: " + err.Error())
+		logger.Logger.Error("Redis set group models error: " + err.Error())
 		return models, nil
 	}
 
 	err = common.RedisSet(fmt.Sprintf("group_models:%s", group), string(cachePayload),
 		time.Duration(GroupModelsCacheSeconds)*time.Second)
 	if err != nil {
-		logger.SysError("Redis set group models error: " + err.Error())
+		logger.Logger.Error("Redis set group models error: " + err.Error())
 	}
 
 	return models, nil
@@ -279,13 +280,13 @@ func InitChannelCache() {
 	channelSyncLock.Lock()
 	group2model2channels = newGroup2model2channels
 	channelSyncLock.Unlock()
-	logger.SysLog("channels synced from database, considering suspensions")
+	logger.Logger.Info("channels synced from database, considering suspensions")
 }
 
 func SyncChannelCache(frequency int) {
 	for {
 		time.Sleep(time.Duration(frequency) * time.Second)
-		logger.SysLog("syncing channels from database")
+		logger.Logger.Info("syncing channels from database")
 		InitChannelCache()
 	}
 }
@@ -401,7 +402,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, ignoreFirstPrior
 		}
 	}
 	channel := candidateChannels[idx]
-	logger.SysLogf("select channel %s#%d in cache", channel.Name, channel.Id)
+	logger.Logger.Info(fmt.Sprintf("select channel %s#%d in cache", channel.Name, channel.Id))
 	return channel, nil
 }
 
@@ -477,7 +478,7 @@ func CacheGetRandomSatisfiedChannelExcluding(group string, model string, ignoreF
 		if endIdx < len(candidateChannels) {
 			idx := random.RandRange(endIdx, len(candidateChannels))
 			channel := candidateChannels[idx]
-			logger.SysLogf("select channel %s#%d in cache", channel.Name, channel.Id)
+			logger.Logger.Info(fmt.Sprintf("select channel %s#%d in cache", channel.Name, channel.Id))
 			return channel, nil
 		} else {
 			// No lower priority channels available, return error to indicate we should try a different approach
@@ -513,7 +514,7 @@ func CacheGetRandomSatisfiedChannelExcluding(group string, model string, ignoreF
 
 		idx := rand.Intn(len(maxPriorityChannels))
 		channel := maxPriorityChannels[idx]
-		logger.SysLogf("select channel %s#%d in cache", channel.Name, channel.Id)
+		logger.Logger.Info(fmt.Sprintf("select channel %s#%d in cache", channel.Name, channel.Id))
 		return channel, nil
 	}
 }

@@ -268,11 +268,12 @@ If the channel ID is not provided, load balancing will be used to distribute the
     +`TIKTOKEN_CACHE_DIR`: By default, when the program starts, it will download the encoding of some common word elements online, such as' gpt-3.5 turbo '. In some unstable network environments or offline situations, it may cause startup problems. This directory can be configured to cache data and can be migrated to an offline environment.
     +`DATA_GYM_CACHE_DIR`: Currently, this configuration has the same function as' TIKTOKEN-CACHE-DIR ', but its priority is not as high as it.
 16. `RELAY_TIMEOUT`: Relay timeout setting, measured in seconds, with no default timeout time set.
-17. `RELAY_PROXY`: After setting up, use this proxy to request APIs.
-18. `USER_CONTENT_REQUEST_TIMEOUT`: The timeout period for users to upload and download content, measured in seconds.
-19. `USER_CONTENT_REQUEST_PROXY`: After setting up, use this agent to request content uploaded by users, such as images.
-20. `SQLITE_BUSY_TIMEOUT`: SQLite lock wait timeout setting, measured in milliseconds, default to '3000'.
-21. `GEMINI_SAFETY_SETTING`: Gemini's security settings are set to 'BLOCK-NONE' by default.
+17. `BILLING_TIMEOUT`: Billing operation timeout setting, measured in seconds, default to 900 (15 minutes). Increase this value if you experience billing timeout errors with long-running requests.
+18. `RELAY_PROXY`: After setting up, use this proxy to request APIs.
+19. `USER_CONTENT_REQUEST_TIMEOUT`: The timeout period for users to upload and download content, measured in seconds.
+20. `USER_CONTENT_REQUEST_PROXY`: After setting up, use this agent to request content uploaded by users, such as images.
+21. `SQLITE_BUSY_TIMEOUT`: SQLite lock wait timeout setting, measured in milliseconds, default to '3000'.
+22. `GEMINI_SAFETY_SETTING`: Gemini's security settings are set to 'BLOCK-NONE' by default.
 22. `GEMINI_VERSION`: The Gemini version used by the One API, which defaults to 'v1'.
 23. `THE`: The system's theme setting, default to 'default', specific optional values refer to [here] (./web/README. md).
 24. `ENABLE_METRIC`: Whether to disable channels based on request success rate, default not enabled, optional values are 'true' and 'false'.

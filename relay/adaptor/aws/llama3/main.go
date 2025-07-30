@@ -52,7 +52,7 @@ func RenderPrompt(messages []relaymodel.Message) string {
 	var buf bytes.Buffer
 	err := promptTpl.Execute(&buf, struct{ Messages []relaymodel.Message }{messages})
 	if err != nil {
-		logger.SysError("error rendering prompt messages: " + err.Error())
+		logger.Logger.Error("error rendering prompt messages: " + err.Error())
 	}
 	return buf.String()
 }
@@ -184,7 +184,7 @@ func StreamHandler(c *gin.Context, awsCli *bedrockruntime.Client) (*relaymodel.E
 			var llamaResp StreamResponse
 			err := json.NewDecoder(bytes.NewReader(v.Value.Bytes)).Decode(&llamaResp)
 			if err != nil {
-				logger.SysError("error unmarshalling stream response: " + err.Error())
+				logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 				return false
 			}
 
@@ -201,7 +201,7 @@ func StreamHandler(c *gin.Context, awsCli *bedrockruntime.Client) (*relaymodel.E
 			response.Created = createdTime
 			jsonStr, err := json.Marshal(response)
 			if err != nil {
-				logger.SysError("error marshalling stream response: " + err.Error())
+				logger.Logger.Error("error marshalling stream response: " + err.Error())
 				return true
 			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonStr)})

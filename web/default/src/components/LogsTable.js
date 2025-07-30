@@ -9,6 +9,8 @@ import {
   Select,
   Table,
   Popup,
+  Icon,
+  Dropdown,
 } from 'semantic-ui-react';
 import {
   API,
@@ -88,29 +90,13 @@ function renderType(type) {
   }
 }
 
-function getColorByElapsedTime(elapsedTime) {
-  if (elapsedTime === undefined || 0) return 'black';
-  if (elapsedTime < 1000) return 'green';
-  if (elapsedTime < 3000) return 'olive';
-  if (elapsedTime < 5000) return 'yellow';
-  if (elapsedTime < 10000) return 'orange';
-  return 'red';
-}
+
 
 function renderDetail(log) {
   return (
     <>
       {log.content}
       <br />
-      {log.elapsed_time && (
-        <Label
-          basic
-          size={'mini'}
-          color={getColorByElapsedTime(log.elapsed_time)}
-        >
-          {log.elapsed_time} ms
-        </Label>
-      )}
       {log.is_stream && (
         <>
           <Label size={'mini'} color='pink'>
@@ -129,6 +115,18 @@ function renderDetail(log) {
   );
 }
 
+function renderLatency(elapsedTime) {
+  if (!elapsedTime) return '';
+  return `${elapsedTime} ms`;
+}
+
+function getSortIcon(columnKey, currentSortBy, currentSortOrder) {
+  if (columnKey !== currentSortBy) {
+    return null;
+  }
+  return currentSortOrder === 'asc' ? ' ↑' : ' ↓';
+}
+
 const LogsTable = () => {
   const { t } = useTranslation();
   const [logs, setLogs] = useState([]);
@@ -136,15 +134,16 @@ const LogsTable = () => {
   const [loading, setLoading] = useState(true);
   const [activePage, setActivePage] = useState(1);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [searching, setSearching] = useState(false);
+
   const [logType, setLogType] = useState(0);
   const isAdminUser = isAdmin();
   let now = new Date();
+  let sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const [inputs, setInputs] = useState({
     username: '',
     token_name: '',
     model_name: '',
-    start_timestamp: timestamp2string(0),
+    start_timestamp: timestamp2string(sevenDaysAgo.getTime() / 1000),
     end_timestamp: timestamp2string(now.getTime() / 1000 + 3600),
     channel: '',
   });
@@ -161,6 +160,12 @@ const LogsTable = () => {
     quota: 0,
     token: 0,
   });
+  const [isStatRefreshing, setIsStatRefreshing] = useState(false);
+  const [userOptions, setUserOptions] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortLoading, setSortLoading] = useState(false);
 
   const LOG_OPTIONS = [
     { key: '0', text: t('log.type.all'), value: 0 },
@@ -171,8 +176,56 @@ const LogsTable = () => {
     { key: '5', text: t('log.type.test'), value: 5 },
   ];
 
-  const handleInputChange = (e, { name, value }) => {
+  const handleInputChange = (_, { name, value }) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
+  };
+
+  const searchUsers = async (searchQuery) => {
+    if (!searchQuery.trim()) {
+      setUserOptions([]);
+      return;
+    }
+
+    setUserSearchLoading(true);
+    try {
+      const res = await API.get(`/api/user/search?keyword=${searchQuery}`);
+      const { success, data } = res.data;
+      if (success) {
+        const options = data.map(user => ({
+          key: user.id,
+          value: user.username,
+          text: `${user.display_name || user.username} (@${user.username})`,
+          content: (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontWeight: 'bold' }}>
+                {user.display_name || user.username}
+              </div>
+              <div style={{ fontSize: '0.9em', color: '#666' }}>
+                @{user.username} • ID: {user.id}
+              </div>
+            </div>
+          )
+        }));
+        setUserOptions(options);
+      }
+    } catch (error) {
+      console.error('Failed to search users:', error);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  const handleStatRefresh = async () => {
+    setIsStatRefreshing(true);
+    try {
+      if (isAdminUser) {
+        await getLogStat();
+      } else {
+        await getLogSelfStat();
+      }
+    } finally {
+      setIsStatRefreshing(false);
+    }
   };
 
   const getLogSelfStat = async () => {
@@ -222,10 +275,14 @@ const LogsTable = () => {
     let url = '';
     let localStartTimestamp = Date.parse(start_timestamp) / 1000;
     let localEndTimestamp = Date.parse(end_timestamp) / 1000;
+    let sortParams = '';
+    if (sortBy) {
+      sortParams = `&sort_by=${sortBy}&sort_order=${sortOrder}`;
+    }
     if (isAdminUser) {
-      url = `/api/log/?p=${startIdx}&type=${logType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}`;
+      url = `/api/log/?p=${startIdx}&type=${logType}&username=${username}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}&channel=${channel}${sortParams}`;
     } else {
-      url = `/api/log/self?p=${startIdx}&type=${logType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}`;
+      url = `/api/log/self?p=${startIdx}&type=${logType}&token_name=${token_name}&model_name=${model_name}&start_timestamp=${localStartTimestamp}&end_timestamp=${localEndTimestamp}${sortParams}`;
     }
     const res = await API.get(url);
     const { success, message, data } = res.data;
@@ -243,7 +300,7 @@ const LogsTable = () => {
     setLoading(false);
   };
 
-  const onPaginationChange = (e, { activePage }) => {
+  const onPaginationChange = (_, { activePage }) => {
     (async () => {
       if (activePage === Math.ceil(logs.length / ITEMS_PER_PAGE) + 1) {
         // In this case we have to load more data and then append them.
@@ -260,59 +317,59 @@ const LogsTable = () => {
   };
 
   useEffect(() => {
-    refresh().then();
-  }, [logType]);
+    refresh();
+  }, [logType, sortBy, sortOrder]);
 
-  const searchLogs = async () => {
-    if (searchKeyword === '') {
-      // if keyword is blank, load files instead.
+
+
+  const sortLog = async (key) => {
+    // Prevent multiple sort requests
+    if (sortLoading) return;
+
+    // Toggle sort order if clicking the same column
+    let newSortOrder = 'desc';
+    if (sortBy === key && sortOrder === 'desc') {
+      newSortOrder = 'asc';
+    }
+
+    setSortBy(key);
+    setSortOrder(newSortOrder);
+    setActivePage(1);
+    setSortLoading(true);
+
+    try {
+      // Reload data with new sorting
       await loadLogs(0);
-      setActivePage(1);
-      return;
+    } finally {
+      setSortLoading(false);
     }
-    setSearching(true);
-    const res = await API.get(`/api/log/self/search?keyword=${searchKeyword}`);
-    const { success, message, data } = res.data;
-    if (success) {
-      setLogs(data);
-      setActivePage(1);
-    } else {
-      showError(message);
-    }
-    setSearching(false);
-  };
-
-  const handleKeywordChange = async (e, { value }) => {
-    setSearchKeyword(value.trim());
-  };
-
-  const sortLog = (key) => {
-    if (logs.length === 0) return;
-    setLoading(true);
-    let sortedLogs = [...logs];
-    if (typeof sortedLogs[0][key] === 'string') {
-      sortedLogs.sort((a, b) => {
-        return ('' + a[key]).localeCompare(b[key]);
-      });
-    } else {
-      sortedLogs.sort((a, b) => {
-        if (a[key] === b[key]) return 0;
-        if (a[key] > b[key]) return -1;
-        if (a[key] < b[key]) return 1;
-      });
-    }
-    if (sortedLogs[0].id === logs[0].id) {
-      sortedLogs.reverse();
-    }
-    setLogs(sortedLogs);
-    setLoading(false);
   };
 
   return (
     <>
       <Header as='h3'>
         {t('log.usage_details')}（{t('log.total_quota')}：
-        {showStat && renderQuota(stat.quota, t)}
+        {showStat && (
+          <>
+            {renderQuota(stat.quota, t)}
+            <Button
+              size='mini'
+              circular
+              icon='refresh'
+              onClick={handleStatRefresh}
+              loading={isStatRefreshing}
+              disabled={isStatRefreshing}
+              style={{
+                marginLeft: '8px',
+                padding: '4px',
+                minHeight: '20px',
+                minWidth: '20px',
+                fontSize: '10px'
+              }}
+              title={t('log.refresh_quota', 'Refresh quota data')}
+            />
+          </>
+        )}
         {!showStat && (
           <span
             onClick={handleEyeClick}
@@ -388,16 +445,32 @@ const LogsTable = () => {
                 name='channel'
                 onChange={handleInputChange}
               />
-              <Form.Input
-                fluid
-                label={t('log.table.username')}
-                size={'small'}
-                width={3}
-                value={username}
-                placeholder={t('log.table.username_placeholder')}
-                name='username'
-                onChange={handleInputChange}
-              />
+              <Form.Field width={3}>
+                <label>{t('log.table.username')}</label>
+                <Dropdown
+                  fluid
+                  selection
+                  search
+                  clearable
+                  allowAdditions
+                  value={username}
+                  placeholder={t('log.table.username_placeholder')}
+                  options={userOptions}
+                  onSearchChange={(_, { searchQuery }) => searchUsers(searchQuery)}
+                  onChange={(_, { value }) => handleInputChange(_, { name: 'username', value })}
+                  loading={userSearchLoading}
+                  noResultsMessage={t('log.no_users_found', 'No users found')}
+                  additionLabel={t('log.use_username', 'Use username: ')}
+                  onAddItem={(_, { value }) => {
+                    const newOption = {
+                      key: value,
+                      value: value,
+                      text: value
+                    };
+                    setUserOptions([...userOptions, newOption]);
+                  }}
+                />
+              </Form.Field>
             </Form.Group>
           </>
         )}
@@ -405,7 +478,7 @@ const LogsTable = () => {
           icon='search'
           placeholder={t('log.search')}
           value={searchKeyword}
-          onChange={(e, { value }) => setSearchKeyword(value)}
+          onChange={(_, { value }) => setSearchKeyword(value)}
         />
       </Form>
       <Table basic={'very'} compact size='small'>
@@ -472,31 +545,44 @@ const LogsTable = () => {
                   {t('log.table.token_name')}
                 </Table.HeaderCell>
                 <Table.HeaderCell
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }}
                   onClick={() => {
                     sortLog('prompt_tokens');
                   }}
                   width={1}
                 >
-                  {t('log.table.prompt_tokens')}
+                  {t('log.table.prompt_tokens')}{getSortIcon('prompt_tokens', sortBy, sortOrder)}
+                  {sortLoading && sortBy === 'prompt_tokens' && <span> ⏳</span>}
                 </Table.HeaderCell>
                 <Table.HeaderCell
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }}
                   onClick={() => {
                     sortLog('completion_tokens');
                   }}
                   width={1}
                 >
-                  {t('log.table.completion_tokens')}
+                  {t('log.table.completion_tokens')}{getSortIcon('completion_tokens', sortBy, sortOrder)}
+                  {sortLoading && sortBy === 'completion_tokens' && <span> ⏳</span>}
                 </Table.HeaderCell>
                 <Table.HeaderCell
-                  style={{ cursor: 'pointer' }}
+                  style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }}
                   onClick={() => {
                     sortLog('quota');
                   }}
                   width={1}
                 >
-                  {t('log.table.quota')}
+                  {t('log.table.quota')}{getSortIcon('quota', sortBy, sortOrder)}
+                  {sortLoading && sortBy === 'quota' && <span> ⏳</span>}
+                </Table.HeaderCell>
+                <Table.HeaderCell
+                  style={{ cursor: sortLoading ? 'wait' : 'pointer', opacity: sortLoading ? 0.6 : 1 }}
+                  onClick={() => {
+                    sortLog('elapsed_time');
+                  }}
+                  width={1}
+                >
+                  {t('log.table.latency')}{getSortIcon('elapsed_time', sortBy, sortOrder)}
+                  {sortLoading && sortBy === 'elapsed_time' && <span> ⏳</span>}
                 </Table.HeaderCell>
               </>
             )}
@@ -510,7 +596,7 @@ const LogsTable = () => {
               (activePage - 1) * ITEMS_PER_PAGE,
               activePage * ITEMS_PER_PAGE
             )
-            .map((log, idx) => {
+            .map((log) => {
               if (log.deleted) return <></>;
               return (
                 <Table.Row key={log.id}>
@@ -566,6 +652,9 @@ const LogsTable = () => {
                       <Table.Cell>
                         {log.quota ? renderQuota(log.quota, t, 6) : 'free'}
                       </Table.Cell>
+                      <Table.Cell>
+                        {renderLatency(log.elapsed_time)}
+                      </Table.Cell>
                     </>
                   )}
 
@@ -584,7 +673,7 @@ const LogsTable = () => {
                 style={{ marginRight: '8px' }}
                 name='logType'
                 value={logType}
-                onChange={(e, { name, value }) => {
+                onChange={(_, { value }) => {
                   setLogType(value);
                 }}
               />

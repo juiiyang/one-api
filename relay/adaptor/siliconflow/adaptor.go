@@ -21,6 +21,13 @@ type Adaptor struct {
 func (a *Adaptor) Init(meta *meta.Meta) {}
 
 func (a *Adaptor) GetRequestURL(meta *meta.Meta) (string, error) {
+	// Handle Claude Messages requests - convert to OpenAI Chat Completions endpoint
+	if meta.RequestURLPath == "/v1/messages" {
+		// Claude Messages requests should use OpenAI's chat completions endpoint
+		chatCompletionsPath := "/v1/chat/completions"
+		return openai_compatible.GetFullRequestURL(meta.BaseURL, chatCompletionsPath, meta.ChannelType), nil
+	}
+
 	// SiliconFlow uses OpenAI-compatible API endpoints
 	return openai_compatible.GetFullRequestURL(meta.BaseURL, meta.RequestURLPath, meta.ChannelType), nil
 }
@@ -74,8 +81,7 @@ func (a *Adaptor) GetChannelName() string {
 // GetDefaultModelPricing returns the pricing information for SiliconFlow models
 // Based on SiliconFlow pricing: https://siliconflow.cn/pricing
 func (a *Adaptor) GetDefaultModelPricing() map[string]adaptor.ModelConfig {
-	const MilliTokensUsd = 0.5 // 0.000001 * 500000 = 0.5 quota per milli-token
-
+	// Use the constants.go ModelRatios which already use ratio.MilliTokensUsd correctly
 	return ModelRatios
 }
 

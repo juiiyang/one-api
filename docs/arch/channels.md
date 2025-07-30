@@ -369,7 +369,7 @@ You can add additional fields for specific use cases:
 Model: gpt-3.5-turbo
 Input tokens: 1000
 Output tokens: 500
-Base cost per 1K tokens: $0.001
+Base cost per 1M tokens: $1.0
 
 Configuration:
 {
@@ -378,8 +378,8 @@ Configuration:
 }
 
 Calculation:
-Input cost = (1000/1000) × $0.001 × 1.5 = $0.0015
-Output cost = (500/1000) × $0.001 × 1.5 × 2.0 = $0.0015
+Input cost = (1000/1000000) × $1.0 × 1.5 = $0.0015
+Output cost = (500/1000000) × $1.0 × 1.5 × 2.0 = $0.0015
 Total cost = $0.0015 + $0.0015 = $0.003
 ```
 

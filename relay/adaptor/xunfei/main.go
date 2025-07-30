@@ -179,7 +179,7 @@ func StreamHandler(c *gin.Context, meta *meta.Meta, textRequest model.GeneralOpe
 			response := streamResponseXunfei2OpenAI(&xunfeiResponse)
 			jsonResponse, err := json.Marshal(response)
 			if err != nil {
-				logger.SysError("error marshalling stream response: " + err.Error())
+				logger.Logger.Error("error marshalling stream response: " + err.Error())
 				return true
 			}
 			c.Render(-1, common.CustomEvent{Data: "data: " + string(jsonResponse)})
@@ -255,14 +255,14 @@ func xunfeiMakeRequest(textRequest model.GeneralOpenAIRequest, domain, authUrl, 
 			if msg == nil {
 				_, msg, err = conn.ReadMessage()
 				if err != nil {
-					logger.SysError("error reading stream response: " + err.Error())
+					logger.Logger.Error("error reading stream response: " + err.Error())
 					break
 				}
 			}
 			var response ChatResponse
 			err = json.Unmarshal(msg, &response)
 			if err != nil {
-				logger.SysError("error unmarshalling stream response: " + err.Error())
+				logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 				break
 			}
 			msg = nil
@@ -270,7 +270,7 @@ func xunfeiMakeRequest(textRequest model.GeneralOpenAIRequest, domain, authUrl, 
 			if response.Payload.Choices.Status == 2 {
 				err := conn.Close()
 				if err != nil {
-					logger.SysError("error closing websocket connection: " + err.Error())
+					logger.Logger.Error("error closing websocket connection: " + err.Error())
 				}
 				break
 			}

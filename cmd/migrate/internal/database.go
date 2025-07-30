@@ -54,7 +54,7 @@ func ConnectDatabase(dbType, dsn string) (*DatabaseConnection, error) {
 	switch strings.ToLower(dbType) {
 	case "sqlite":
 		driver = "sqlite"
-		oneapilogger.SysLog("Connecting to SQLite database")
+		oneapilogger.Logger.Info("Connecting to SQLite database")
 		// Add busy timeout for SQLite
 		if !strings.Contains(cleanDSN, "?") {
 			cleanDSN += fmt.Sprintf("?_busy_timeout=%d", common.SQLiteBusyTimeout)
@@ -67,14 +67,14 @@ func ConnectDatabase(dbType, dsn string) (*DatabaseConnection, error) {
 		})
 	case "mysql":
 		driver = "mysql"
-		oneapilogger.SysLog("Connecting to MySQL database")
+		oneapilogger.Logger.Info("Connecting to MySQL database")
 		db, err = gorm.Open(mysql.Open(cleanDSN), &gorm.Config{
 			PrepareStmt: true,
 			Logger:      logger.Default.LogMode(logger.Silent),
 		})
 	case "postgres", "postgresql":
 		driver = "postgres"
-		oneapilogger.SysLog("Connecting to PostgreSQL database")
+		oneapilogger.Logger.Info("Connecting to PostgreSQL database")
 		db, err = gorm.Open(postgres.New(postgres.Config{
 			DSN:                  cleanDSN,
 			PreferSimpleProtocol: true,
@@ -100,7 +100,7 @@ func ConnectDatabase(dbType, dsn string) (*DatabaseConnection, error) {
 		return nil, fmt.Errorf("failed to ping %s database: %w", dbType, err)
 	}
 
-	oneapilogger.SysLog(fmt.Sprintf("Successfully connected to %s database", dbType))
+	oneapilogger.Logger.Info(fmt.Sprintf("Successfully connected to %s database", dbType))
 
 	return &DatabaseConnection{
 		DB:     db,
@@ -135,7 +135,7 @@ func (dc *DatabaseConnection) Close() error {
 		return fmt.Errorf("failed to close %s database connection: %w", dc.Type, err)
 	}
 
-	oneapilogger.SysLog(fmt.Sprintf("Closed %s database connection", dc.Type))
+	oneapilogger.Logger.Info(fmt.Sprintf("Closed %s database connection", dc.Type))
 	return nil
 }
 
@@ -207,6 +207,6 @@ func (dc *DatabaseConnection) ValidateConnection() error {
 		return fmt.Errorf("unexpected result from test query: got %d, expected 1", result)
 	}
 
-	oneapilogger.SysLog(fmt.Sprintf("%s database connection validated successfully", dc.Type))
+	oneapilogger.Logger.Info(fmt.Sprintf("%s database connection validated successfully", dc.Type))
 	return nil
 }

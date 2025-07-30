@@ -42,6 +42,12 @@ type MetricsRecorder interface {
 	// Model metrics
 	RecordModelUsage(modelName, channelType string, latency time.Duration)
 
+	// Billing metrics
+	RecordBillingOperation(startTime time.Time, operation string, success bool, userId int, channelId int, modelName string, quotaAmount float64)
+	RecordBillingTimeout(userId int, channelId int, modelName string, estimatedQuota float64, elapsedTime time.Duration)
+	RecordBillingError(errorType, operation string, userId int, channelId int, modelName string)
+	UpdateBillingStats(totalBillingOperations, successfulBillingOperations, failedBillingOperations int64)
+
 	// System metrics
 	InitSystemMetrics(version, buildTime, goVersion string, startTime time.Time)
 }
@@ -62,16 +68,24 @@ func (n *NoOpRecorder) UpdateChannelRequestsInFlight(channelId int, channelName,
 }
 func (n *NoOpRecorder) RecordUserMetrics(userId, username, group string, quotaUsed float64, promptTokens, completionTokens int, balance float64) {
 }
-func (n *NoOpRecorder) RecordDBQuery(startTime time.Time, operation, table string, success bool)    {}
-func (n *NoOpRecorder) UpdateDBConnectionMetrics(inUse, idle int)                                   {}
-func (n *NoOpRecorder) RecordRedisCommand(startTime time.Time, command string, success bool)        {}
-func (n *NoOpRecorder) UpdateRedisConnectionMetrics(active int)                                     {}
-func (n *NoOpRecorder) RecordRateLimitHit(limitType, identifier string)                             {}
-func (n *NoOpRecorder) UpdateRateLimitRemaining(limitType, identifier string, remaining int)        {}
-func (n *NoOpRecorder) RecordTokenAuth(success bool)                                                {}
-func (n *NoOpRecorder) UpdateActiveTokens(userId, tokenName string, count int)                      {}
-func (n *NoOpRecorder) RecordError(errorType, component string)                                     {}
-func (n *NoOpRecorder) RecordModelUsage(modelName, channelType string, latency time.Duration)       {}
+func (n *NoOpRecorder) RecordDBQuery(startTime time.Time, operation, table string, success bool) {}
+func (n *NoOpRecorder) UpdateDBConnectionMetrics(inUse, idle int)                                {}
+func (n *NoOpRecorder) RecordRedisCommand(startTime time.Time, command string, success bool)     {}
+func (n *NoOpRecorder) UpdateRedisConnectionMetrics(active int)                                  {}
+func (n *NoOpRecorder) RecordRateLimitHit(limitType, identifier string)                          {}
+func (n *NoOpRecorder) UpdateRateLimitRemaining(limitType, identifier string, remaining int)     {}
+func (n *NoOpRecorder) RecordTokenAuth(success bool)                                             {}
+func (n *NoOpRecorder) UpdateActiveTokens(userId, tokenName string, count int)                   {}
+func (n *NoOpRecorder) RecordError(errorType, component string)                                  {}
+func (n *NoOpRecorder) RecordModelUsage(modelName, channelType string, latency time.Duration)    {}
+func (n *NoOpRecorder) RecordBillingOperation(startTime time.Time, operation string, success bool, userId int, channelId int, modelName string, quotaAmount float64) {
+}
+func (n *NoOpRecorder) RecordBillingTimeout(userId int, channelId int, modelName string, estimatedQuota float64, elapsedTime time.Duration) {
+}
+func (n *NoOpRecorder) RecordBillingError(errorType, operation string, userId int, channelId int, modelName string) {
+}
+func (n *NoOpRecorder) UpdateBillingStats(totalBillingOperations, successfulBillingOperations, failedBillingOperations int64) {
+}
 func (n *NoOpRecorder) InitSystemMetrics(version, buildTime, goVersion string, startTime time.Time) {}
 
 // Initialize with no-op recorder by default

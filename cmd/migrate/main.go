@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/cmd/migrate/internal"
 	"github.com/songquanpeng/one-api/common/logger"
 )
@@ -15,26 +18,26 @@ const (
 	usage   = `One API Database Migration Tool v%s
 
 DESCRIPTION:
-    This tool helps migrate data between different database types supported by One API:
-    - SQLite
-    - MySQL
-    - PostgreSQL
+	This tool helps migrate data between different database types supported by One API:
+	- SQLite
+	- MySQL
+	- PostgreSQL
 
 USAGE:
-    %s [OPTIONS]
+	%s [OPTIONS]
 
 EXAMPLES:
-    # Migrate from SQLite to MySQL with custom concurrency
-    %s -source-dsn="sqlite://./one-api.db" -target-dsn="mysql://user:pass@localhost:3306/oneapi" -workers=8 -batch-size=2000
+	# Migrate from SQLite to MySQL with custom concurrency
+	%s -source-dsn="sqlite://./one-api.db" -target-dsn="mysql://user:pass@localhost:3306/oneapi" -workers=8 -batch-size=2000
 
-    # Migrate from MySQL to PostgreSQL
-    %s -source-dsn="mysql://user:pass@localhost:3306/oneapi" -target-dsn="postgres://user:pass@localhost/oneapi?sslmode=disable"
+	# Migrate from MySQL to PostgreSQL
+	%s -source-dsn="mysql://user:pass@localhost:3306/oneapi" -target-dsn="postgres://user:pass@localhost/oneapi?sslmode=disable"
 
-    # Dry run to validate migration without making changes
-    %s -source-dsn="sqlite://./one-api.db" -target-dsn="mysql://user:pass@localhost:3306/oneapi" -dry-run
+	# Dry run to validate migration without making changes
+	%s -source-dsn="sqlite://./one-api.db" -target-dsn="mysql://user:pass@localhost:3306/oneapi" -dry-run
 
-    # Re-run migration safely (idempotent - handles existing data automatically)
-    %s -source-dsn="./one-api.db" -target-dsn="postgres://user:pass@localhost/oneapi"
+	# Re-run migration safely (idempotent - handles existing data automatically)
+	%s -source-dsn="./one-api.db" -target-dsn="postgres://user:pass@localhost/oneapi"
 
 OPTIONS:
 `
@@ -75,12 +78,12 @@ func main() {
 	// Setup logging
 	logger.SetupLogger()
 	if *verbose {
-		logger.SysLog("Verbose logging enabled")
+		logger.Logger.Info("Verbose logging enabled")
 	}
 
 	// Validate required parameters
 	if err := validateFlags(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+		logger.Logger.Error("invalid flags", zap.Error(err))
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -91,7 +94,7 @@ func main() {
 	// Extract database types from DSNs
 	sourceType, err := internal.ExtractDatabaseTypeFromDSN(*sourceDSN)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: Failed to determine source database type: %v\n\n", err)
+		logger.Logger.Error("failed to determine source database type", zap.Error(err))
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -100,7 +103,7 @@ func main() {
 	if *targetDSN != "" {
 		targetType, err = internal.ExtractDatabaseTypeFromDSN(*targetDSN)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: Failed to determine target database type: %v\n\n", err)
+			logger.Logger.Error("failed to determine target database type", zap.Error(err))
 			flag.Usage()
 			os.Exit(1)
 		}
@@ -120,84 +123,84 @@ func main() {
 	// Handle different operation modes
 	if *showPlan {
 		if err := showMigrationPlan(migrator); err != nil {
-			logger.FatalLog(fmt.Sprintf("Failed to generate migration plan: %v", err))
+			logger.Logger.Fatal("failed to generate migration plan", zap.Error(err))
 		}
 		return
 	}
 
 	if *validateOnly {
 		if err := migrator.ValidateOnly(ctx); err != nil {
-			logger.FatalLog(fmt.Sprintf("Validation failed: %v", err))
+			logger.Logger.Fatal("validation failed", zap.Error(err))
 		}
-		logger.SysLog("Validation completed successfully")
+		logger.Logger.Info("Validation completed successfully")
 		return
 	}
 
 	// Run pre-migration validation unless skipped
 	if !*skipValidation {
 		if err := runPreMigrationValidation(migrator); err != nil {
-			logger.FatalLog(fmt.Sprintf("Pre-migration validation failed: %v", err))
+			logger.Logger.Fatal("pre-migration validation failed", zap.Error(err))
 		}
 	}
 
 	// Run migration
 	if err := migrator.Migrate(ctx); err != nil {
-		logger.FatalLog(fmt.Sprintf("Migration failed: %v", err))
+		logger.Logger.Fatal("migration failed", zap.Error(err))
 	}
 
 	if *dryRun {
-		logger.SysLog("Dry run completed successfully - no changes were made")
+		logger.Logger.Info("Dry run completed successfully - no changes were made")
 	} else {
-		logger.SysLog("Migration completed successfully")
+		logger.Logger.Info("Migration completed successfully")
 	}
 }
 
 func validateFlags() error {
 	// Source DSN is always required
 	if *sourceDSN == "" {
-		return fmt.Errorf("source-dsn is required")
+		return errors.Errorf("source-dsn is required")
 	}
 
 	// Target DSN is only required for actual migration
 	if !*showPlan && !*validateOnly {
 		if *targetDSN == "" {
-			return fmt.Errorf("target-dsn is required")
+			return errors.Errorf("target-dsn is required")
 		}
 	}
 
 	// Validate DSN formats and extract types
 	if err := internal.ValidateDSN(*sourceDSN); err != nil {
-		return fmt.Errorf("invalid source DSN: %w", err)
+		return errors.Wrapf(err, "invalid source DSN")
 	}
 
 	sourceType, err := internal.ExtractDatabaseTypeFromDSN(*sourceDSN)
 	if err != nil {
-		return fmt.Errorf("unable to determine source database type: %w", err)
+		return errors.Wrapf(err, "unable to determine source database type")
 	}
 
 	if *targetDSN != "" {
 		if err := internal.ValidateDSN(*targetDSN); err != nil {
-			return fmt.Errorf("invalid target DSN: %w", err)
+			return errors.Wrapf(err, "invalid target DSN")
 		}
 
 		targetType, err := internal.ExtractDatabaseTypeFromDSN(*targetDSN)
 		if err != nil {
-			return fmt.Errorf("unable to determine target database type: %w", err)
+			return errors.Wrapf(err, "unable to determine target database type")
 		}
 
 		// Check if source and target are the same
 		if sourceType == targetType && *sourceDSN == *targetDSN {
-			return fmt.Errorf("source and target cannot be the same")
+			return errors.Errorf("source and target cannot be the same")
 		}
 	}
 
 	// Validate flag combinations
 	if *dryRun && *validateOnly {
-		return fmt.Errorf("cannot use both --dry-run and --validate-only")
+		return errors.Errorf("cannot use both --dry-run and --validate-only")
 	}
 
 	if *showPlan && (*dryRun || *validateOnly) {
-		return fmt.Errorf("--show-plan cannot be used with other operation modes")
+		return errors.Errorf("--show-plan cannot be used with other operation modes")
 	}
 
 	return nil
@@ -207,7 +210,7 @@ func validateFlags() error {
 func showMigrationPlan(migrator *internal.Migrator) error {
 	plan, err := migrator.GetMigrationPlan()
 	if err != nil {
-		return fmt.Errorf("failed to get migration plan: %w", err)
+		return errors.Wrapf(err, "failed to get migration plan")
 	}
 
 	fmt.Printf("\n=== Migration Plan ===\n")
@@ -230,36 +233,36 @@ func showMigrationPlan(migrator *internal.Migrator) error {
 
 // runPreMigrationValidation runs comprehensive pre-migration validation
 func runPreMigrationValidation(migrator *internal.Migrator) error {
-	logger.SysLog("Running pre-migration validation...")
+	logger.Logger.Info("Running pre-migration validation...")
 
 	validator := internal.NewPreMigrationValidator(migrator)
 	result, err := validator.ValidateAll()
 	if err != nil {
-		return fmt.Errorf("validation process failed: %w", err)
+		return errors.Wrapf(err, "validation process failed")
 	}
 
 	// Display warnings
 	if len(result.Warnings) > 0 {
-		logger.SysLog("=== Validation Warnings ===")
+		logger.Logger.Info("=== Validation Warnings ===")
 		for _, warning := range result.Warnings {
-			logger.SysWarn(warning)
+			logger.Logger.Warn(warning)
 		}
 		fmt.Println()
 	}
 
 	// Display errors
 	if len(result.Errors) > 0 {
-		logger.SysLog("=== Validation Errors ===")
+		logger.Logger.Info("=== Validation Errors ===")
 		for _, error := range result.Errors {
-			logger.SysError(error)
+			logger.Logger.Error(error)
 		}
 		fmt.Println()
 	}
 
 	if !result.Valid {
-		return fmt.Errorf("validation failed with %d errors", len(result.Errors))
+		return errors.Errorf("validation failed with %d errors", len(result.Errors))
 	}
 
-	logger.SysLog("Pre-migration validation completed successfully")
+	logger.Logger.Info("Pre-migration validation completed successfully")
 	return nil
 }

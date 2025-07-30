@@ -2,7 +2,6 @@ package ollama
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -134,7 +133,7 @@ func StreamHandler(c *gin.Context, resp *http.Response) (*model.ErrorWithStatusC
 		var ollamaResponse ChatResponse
 		err := json.Unmarshal([]byte(data), &ollamaResponse)
 		if err != nil {
-			logger.SysError("error unmarshalling stream response: " + err.Error())
+			logger.Logger.Error("error unmarshalling stream response: " + err.Error())
 			continue
 		}
 
@@ -147,12 +146,12 @@ func StreamHandler(c *gin.Context, resp *http.Response) (*model.ErrorWithStatusC
 		response := streamResponseOllama2OpenAI(&ollamaResponse)
 		err = render.ObjectData(c, response)
 		if err != nil {
-			logger.SysError(err.Error())
+			logger.Logger.Error(err.Error())
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.SysError("error reading stream: " + err.Error())
+		logger.Logger.Error("error reading stream: " + err.Error())
 	}
 
 	render.Done(c)
@@ -233,13 +232,12 @@ func embeddingResponseOllama2OpenAI(response *EmbeddingResponse) *openai.Embeddi
 }
 
 func Handler(c *gin.Context, resp *http.Response) (*model.ErrorWithStatusCode, *model.Usage) {
-	ctx := context.TODO()
 	var ollamaResponse ChatResponse
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return openai.ErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
 	}
-	logger.Debugf(ctx, "ollama response: %s", string(responseBody))
+	logger.Logger.Debug(fmt.Sprintf("ollama response: %s", string(responseBody)))
 	err = resp.Body.Close()
 	if err != nil {
 		return openai.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil

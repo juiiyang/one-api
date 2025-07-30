@@ -81,7 +81,7 @@ func InitPrometheusRedisMonitoring() {
 		} else {
 			// For other Redis client types, we can't easily add hooks
 			// But we can still provide basic monitoring by wrapping commands
-			logger.SysLog("Redis monitoring: Using basic monitoring (hooks not available for this client type)")
+			logger.Logger.Info("Redis monitoring: Using basic monitoring (hooks not available for this client type)")
 		}
 	}
 }

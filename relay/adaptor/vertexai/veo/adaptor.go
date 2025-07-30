@@ -14,16 +14,24 @@ import (
 
 	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/common/helper"
+	"github.com/songquanpeng/one-api/relay/adaptor"
 	"github.com/songquanpeng/one-api/relay/adaptor/openai"
 	"github.com/songquanpeng/one-api/relay/billing/ratio"
 	"github.com/songquanpeng/one-api/relay/meta"
 	"github.com/songquanpeng/one-api/relay/model"
 )
 
-var ModelList = []string{
-	"veo-2.0-generate-001",
-	"veo-3.0-generate-preview",
+// ModelRatios contains all supported models and their pricing ratios
+// Model list is derived from the keys of this map, eliminating redundancy
+// Based on VertexAI Veo pricing: https://cloud.google.com/vertex-ai/generative-ai/pricing
+var ModelRatios = map[string]adaptor.ModelConfig{
+	// Veo Video Generation Models
+	"veo-2.0-generate-001":     {Ratio: (0.1 / 0.1) * ratio.VideoUsdPerVideo, CompletionRatio: 1},  // $0.1 per video
+	"veo-3.0-generate-preview": {Ratio: (0.15 / 0.1) * ratio.VideoUsdPerVideo, CompletionRatio: 1}, // $0.15 per video
 }
+
+// ModelList derived from ModelRatios for backward compatibility
+var ModelList = adaptor.GetModelListFromPricing(ModelRatios)
 
 const (
 	pollInterval             = 5 * time.Second // Polling interval for video task status

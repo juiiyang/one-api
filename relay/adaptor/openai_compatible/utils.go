@@ -2,13 +2,14 @@ package openai_compatible
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	gmw "github.com/Laisky/gin-middlewares/v6"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
@@ -64,7 +65,9 @@ func NormalizeDataLine(data string) string {
 
 // ErrorWrapper creates an error response
 func ErrorWrapper(err error, code string, statusCode int) *model.ErrorWithStatusCode {
-	logger.Error(context.TODO(), fmt.Sprintf("[%s]%+v", code, err))
+	logger.Logger.Error("API error",
+		zap.String("code", code),
+		zap.Error(err))
 	return &model.ErrorWithStatusCode{
 		Error: model.Error{
 			Message: err.Error(),
@@ -166,11 +169,13 @@ func StreamHandler(c *gin.Context, resp *http.Response, promptTokens int, modelN
 
 // Handler processes non-streaming responses from OpenAI-compatible APIs
 func Handler(c *gin.Context, resp *http.Response, promptTokens int, modelName string) (*model.ErrorWithStatusCode, *model.Usage) {
+	logger := gmw.GetLogger(c)
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError), nil
 	}
 
+	logger.Debug("receive from upstream channel", zap.ByteString("response_body", responseBody))
 	if err = resp.Body.Close(); err != nil {
 		return ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError), nil
 	}

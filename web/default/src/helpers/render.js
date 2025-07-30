@@ -96,7 +96,7 @@ export function renderQuota(quota, t, precision = 2) {
   const displayInCurrency =
     localStorage.getItem('display_in_currency') === 'true';
   const quotaPerUnit = parseFloat(
-    localStorage.getItem('quota_per_unit') || '1'
+    localStorage.getItem('quota_per_unit') || '500000'
   );
 
   if (displayInCurrency) {
@@ -111,7 +111,7 @@ export function renderQuotaWithPrompt(quota, t) {
   const displayInCurrency =
     localStorage.getItem('display_in_currency') === 'true';
   const quotaPerUnit = parseFloat(
-    localStorage.getItem('quota_per_unit') || '1'
+    localStorage.getItem('quota_per_unit') || '500000'
   );
 
   if (displayInCurrency) {

@@ -9,11 +9,14 @@ import (
 	"time"
 
 	"github.com/Laisky/errors/v2"
+	"github.com/Laisky/zap"
 	"github.com/gin-gonic/gin"
 
 	"github.com/songquanpeng/one-api/common"
+	"github.com/songquanpeng/one-api/common/config"
 	"github.com/songquanpeng/one-api/common/ctxkey"
 	"github.com/songquanpeng/one-api/common/logger"
+	"github.com/songquanpeng/one-api/common/metrics"
 	"github.com/songquanpeng/one-api/model"
 	"github.com/songquanpeng/one-api/relay"
 	"github.com/songquanpeng/one-api/relay/adaptor"
@@ -32,13 +35,13 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// get & validate Response API request
 	responseAPIRequest, err := getAndValidateResponseAPIRequest(c)
 	if err != nil {
-		logger.Errorf(ctx, "getAndValidateResponseAPIRequest failed: %s", err.Error())
+		logger.Logger.Error("getAndValidateResponseAPIRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "invalid_response_api_request", http.StatusBadRequest)
 	}
 	meta.IsStream = responseAPIRequest.Stream != nil && *responseAPIRequest.Stream
 
 	if reqBody, ok := c.Get(ctxkey.KeyRequestBody); ok {
-		logger.Debugf(c.Request.Context(), "get response api request: %s\n", string(reqBody.([]byte)))
+		logger.Logger.Debug("get response api request", zap.ByteString("body", reqBody.([]byte)))
 	}
 
 	// Check if channel supports Response API
@@ -61,7 +64,7 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	meta.PromptTokens = promptTokens
 	preConsumedQuota, bizErr := preConsumeResponseAPIQuota(c, responseAPIRequest, promptTokens, ratio, meta)
 	if bizErr != nil {
-		logger.Warnf(ctx, "preConsumeResponseAPIQuota failed: %+v", *bizErr)
+		logger.Logger.Warn("preConsumeResponseAPIQuota failed", zap.Any("error", *bizErr))
 		return bizErr
 	}
 
@@ -84,7 +87,7 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// do request
 	resp, err := adaptor.DoRequest(c, meta, requestBody)
 	if err != nil {
-		logger.Errorf(ctx, "DoRequest failed: %s", err.Error())
+		logger.Logger.Error("DoRequest failed", zap.Error(err))
 		return openai.ErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 
@@ -97,7 +100,7 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	// do response
 	usage, respErr := adaptor.DoResponse(c, resp, meta)
 	if respErr != nil {
-		logger.Errorf(ctx, "DoResponse failed: %+v", *respErr)
+		logger.Logger.Error("DoResponse failed", zap.Any("error", *respErr))
 		billing.ReturnPreConsumedQuota(ctx, preConsumedQuota, c.GetInt(ctxkey.TokenId))
 		return respErr
 	}
@@ -107,20 +110,53 @@ func RelayResponseAPIHelper(c *gin.Context) *relaymodel.ErrorWithStatusCode {
 	requestId := c.GetString(ctxkey.RequestId)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// Use configurable billing timeout with model-specific adjustments
+		baseBillingTimeout := time.Duration(config.BillingTimeoutSec) * time.Second
+		billingTimeout := baseBillingTimeout
+
+		ctx, cancel := context.WithTimeout(context.Background(), billingTimeout)
 		defer cancel()
 
-		quota := postConsumeResponseAPIQuota(ctx, usage, meta, responseAPIRequest, ratio, preConsumedQuota, modelRatio, groupRatio, channelCompletionRatio)
+		// Monitor for timeout and log critical errors
+		done := make(chan bool, 1)
+		var quota int64
 
-		// also update user request cost
-		if quota != 0 {
-			docu := model.NewUserRequestCost(
-				quotaId,
-				requestId,
-				quota,
-			)
-			if err = docu.Insert(); err != nil {
-				logger.Errorf(ctx, "insert user request cost failed: %+v", err)
+		go func() {
+			quota = postConsumeResponseAPIQuota(ctx, usage, meta, responseAPIRequest, ratio, preConsumedQuota, modelRatio, groupRatio, channelCompletionRatio)
+
+			// also update user request cost
+			if quota != 0 {
+				docu := model.NewUserRequestCost(
+					quotaId,
+					requestId,
+					quota,
+				)
+				if err = docu.Insert(); err != nil {
+					logger.Logger.Error("insert user request cost failed", zap.Error(err))
+				}
+			}
+			done <- true
+		}()
+
+		select {
+		case <-done:
+			// Billing completed successfully
+		case <-ctx.Done():
+			if ctx.Err() == context.DeadlineExceeded {
+				estimatedQuota := float64(usage.PromptTokens+usage.CompletionTokens) * ratio
+				elapsedTime := time.Since(meta.StartTime)
+
+				logger.Logger.Error("CRITICAL BILLING TIMEOUT",
+					zap.String("model", responseAPIRequest.Model),
+					zap.String("requestId", requestId),
+					zap.Int("userId", meta.UserId),
+					zap.Int64("estimatedQuota", int64(estimatedQuota)),
+					zap.Duration("elapsedTime", elapsedTime))
+
+				// Record billing timeout in metrics
+				metrics.GlobalRecorder.RecordBillingTimeout(meta.UserId, meta.ChannelId, responseAPIRequest.Model, estimatedQuota, elapsedTime)
+
+				// TODO: Implement dead letter queue or retry mechanism for failed billing
 			}
 		}
 	}()
@@ -263,7 +299,7 @@ func postConsumeResponseAPIQuota(ctx context.Context,
 	channelCompletionRatio map[string]float64) (quota int64) {
 
 	if usage == nil {
-		logger.Error(ctx, "usage is nil, which is unexpected")
+		logger.Logger.Error("usage is nil, which is unexpected")
 		return
 	}
 

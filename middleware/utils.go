@@ -10,10 +10,11 @@ import (
 
 	"github.com/songquanpeng/one-api/common"
 	"github.com/songquanpeng/one-api/common/helper"
-	"github.com/songquanpeng/one-api/common/logger"
 )
 
 func abortWithMessage(c *gin.Context, statusCode int, message string) {
+	logger := gmw.GetLogger(c)
+	logger.Error("server abort with message", zap.String("message", message))
 	c.JSON(statusCode, gin.H{
 		"error": gin.H{
 			"message": helper.MessageWithRequestId(message, c.GetString(helper.RequestIdKey)),
@@ -21,7 +22,6 @@ func abortWithMessage(c *gin.Context, statusCode int, message string) {
 		},
 	})
 	c.Abort()
-	logger.Error(c.Request.Context(), message)
 }
 
 // AbortWithError aborts the request with an error message

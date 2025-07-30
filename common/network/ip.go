@@ -6,6 +6,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/Laisky/zap"
+
 	"github.com/songquanpeng/one-api/common/logger"
 )
 
@@ -28,7 +30,7 @@ func isValidSubnet(subnet string) error {
 func isIpInSubnet(ctx context.Context, ip string, subnet string) bool {
 	_, ipNet, err := net.ParseCIDR(subnet)
 	if err != nil {
-		logger.Errorf(ctx, "failed to parse subnet: %s", err.Error())
+		logger.Logger.Error("failed to parse subnet", zap.String("subnet", subnet), zap.Error(err))
 		return false
 	}
 	return ipNet.Contains(net.ParseIP(ip))
